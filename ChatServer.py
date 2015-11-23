@@ -2,7 +2,7 @@ import sys, getopt
 import socket
 import thread
 import time
-#helloe;
+
 ClientList = []
 
 def main(argv):
