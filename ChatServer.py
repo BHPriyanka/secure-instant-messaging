@@ -5,6 +5,9 @@ import time
 
 ClientList = []
 
+def hash32(value):
+    return hash(value) & 0xffffffff
+
 def main(argv):
    serverPort = ''
    if len(argv) != 2:

@@ -4,6 +4,10 @@ import thread
 import time
 import re
 
+def hash32(value):
+   # use this to calculate W from password string.
+   return hash(value) & 0xffffffff
+
 def main(argv):
    serverIP = ''
    serverPort = ''
@@ -54,6 +58,9 @@ def main(argv):
          user = cmdComponents[1]
          msg = cmdComponents[2]
          MsgSendSequence(user, msg)
+      elif cmdComponents[0] == 'exit':
+         LogoutSequence()
+         exit(0)
 
 
 
