@@ -4,6 +4,10 @@ import thread
 import time
 import re
 
+def hash32(value):
+   # use this to calculate W from password string.
+   return hash(value) & 0xffffffff
+
 def main(argv):
    serverIP = ''
    serverPort = ''
@@ -31,6 +35,10 @@ def main(argv):
       server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  ## Use UDP for communication
       server_socket.bind((socket.gethostname(), 0))   #dynamically allocate unprivileged random port
       print 'Server Communication Port at '+server_socket.getsockname()[0]+":"+str(server_socket.getsockname()[1])
+      # start login sequence
+      username = raw_input("user:")
+      password = raw_input("password:")
+      print username+":"+password
 
       # Common Port
       client_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  ## Use UDP for communication
@@ -50,10 +58,20 @@ def main(argv):
       cmdComponents = re.split('\W+', inputStr)
       if cmdComponents[0] == 'list':
          # list sequence
+         print 'list sequence'
       elif cmdComponents[0] == 'send':
+         if len(cmdComponents)<3:
+            print 'send <user> <message>'
+            continue
          user = cmdComponents[1]
-         msg = cmdComponents[2]
+         msg = ' '.join(cmdComponents[2:len(cmdComponents)])
+         print 'send sequence'
+         print 'msg:'+msg
          MsgSendSequence(user, msg)
+      elif cmdComponents[0] == 'exit':
+         print 'logout sequence'
+         LogoutSequence(username)
+         exit(0)
 
 
 
@@ -100,6 +118,7 @@ def AuthSequenceB():
 
 def MsgSendSequence(user, msg):
    # fetch user info from server
+   peerInfo=''
    AuthSequenceA(peerInfo)
    # encrypt msg and send it to peer
 
