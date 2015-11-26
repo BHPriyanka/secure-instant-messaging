@@ -50,13 +50,16 @@ def main(argv):
    
    u = DiffieHellman()
 
-   p = "{1}".format(u.prime.bit_length(), u.prime)
-
-   a = "{1}".format(u.privateKey.bit_length(),u.privateKey)
+   #p = "{1}".format(u.prime.bit_length(), u.prime)
+   p = str(u.prime)
+   
+   #a = "{1}".format(u.privateKey.bit_length(),u.privateKey)
+   a = str(u.privateKey)
 
    #public key g^a mod p
-   dh_pub_key= "{1}".format(u.publicKey.bit_length(),u.publicKey)
-  
+   #dh_pub_key= "{1}".format(u.publicKey.bit_length(),u.publicKey)
+   dh_pub_key = str(u.publicKey)
+   
    #generate client rsa auth key pair
    try:
       sender_private_key = rsa.generate_private_key(
@@ -100,7 +103,15 @@ def main(argv):
 
    #encrypt the symmetric key with rsa public key
    cipher_key_sym = serverpubkey.encrypt(key_sym, padding.OAEP( mgf=padding.MGF1(algorithm=hashes.SHA1()),algorithm=hashes.SHA1(),label=None))
-  
+   #print('cipher_key_sym len =',len(bytes(cipher_key_sym)))
+   #print('iv len =',len(bytes(iv)))
+   #print('greeting len =',len(bytes(0x00)))
+
+
+   #constant for GREETING is 0x00
+
+   greeting_msg = bytes(0x00)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
+   #print(greeting_msg)
   #cipher_file.write(bytes(iv))
   #cipher_file.write(bytes(cipher_key_sym))
   #cipher_file.write(bytes(ciphertext))
