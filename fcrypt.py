@@ -95,7 +95,7 @@ def keygen():
 # The encrypt function will takes in destination_public_key_filename, sender_private_key_filename, 
 # input_plaintext_file, ciphertext_file as input argmuments. And encrypt the given plaintext with
 # proper keys.
-def encrypt(destination_public_key_filename, sender_private_key_filename, input_plaintext_file, ciphertext_file):
+def encrypt(destination_public_key_pemStr, sender_private_key_pemStr, input_plaintext):
    # generate a symetric key
    key_sym = keygen();
    print 'key_sym len = ',len(key_sym)
@@ -103,11 +103,11 @@ def encrypt(destination_public_key_filename, sender_private_key_filename, input_
    private_key = None
 
    # encrypt key_sym with reciever's public key
-   with open(destination_public_key_filename, "rb") as key_file:
-      public_key = serialization.load_pem_public_key(
-          key_file.read(),
-          backend=default_backend()
-      )
+   public_key = serialization.load_pem_public_key(
+       destination_public_key_pemStr,
+       backend=default_backend()
+   )
+
    cipher_key_sym = public_key.encrypt(
       key_sym,
       padding.OAEP(
@@ -122,22 +122,17 @@ def encrypt(destination_public_key_filename, sender_private_key_filename, input_
    iv = os.urandom(16)
    cipher = Cipher(algorithms.AES(key_sym), modes.OFB(iv), backend=default_backend())
    encryptor = cipher.encryptor()
-   data = None
-   with open(input_plaintext_file, "rb") as data_file:
-      data = data_file.read()
-      data_file.close()
 
-   print 'data len = ',len(data)
-   ciphertext = encryptor.update(data) + encryptor.finalize()
+   print 'data len = ',len(input_plaintext)
+   ciphertext = encryptor.update(input_plaintext) + encryptor.finalize()
    print 'ciphertext len =',len(bytes(ciphertext))
 
    # sign the file with sender's private key
-   with open(sender_private_key_filename, "rb") as key_file:
-      private_key = serialization.load_pem_private_key(
-         key_file.read(),
-         password=None,
-         backend=default_backend()
-      )
+   private_key = serialization.load_pem_private_key(
+      sender_private_key_pemStr,
+      password=None,
+      backend=default_backend()
+   )
    signer = private_key.signer(
        padding.PSS(
            mgf=padding.MGF1(hashes.SHA1()),
@@ -150,47 +145,37 @@ def encrypt(destination_public_key_filename, sender_private_key_filename, input_
    print 'signature len = ',len(bytes(signature))
 
    # compose the cipher text: iv|key_sym|signature|file
-   with open(ciphertext_file, "wb") as cipher_file:
-      cipher_file.write(bytes(iv))
-      cipher_file.write(bytes(cipher_key_sym))
-      cipher_file.write(bytes(signature))
-      cipher_file.write(bytes(ciphertext))
-      cipher_file.close()
+   return bytes(iv)+bytes(cipher_key_sym)+bytes(signature)+bytes(ciphertext)
 
 # The decrypt function will takes in destination_private_key_filename, sender_public_key_filename, 
 # ciphertext_file, output_plaintext_file as input argmuments. And decrypt the given ciphertext with
 # proper keys.
-def decrypt(destination_private_key_filename, sender_public_key_filename, ciphertext_file, output_plaintext_file):
+def decrypt(dataRecv, destination_private_key_pemStr, sender_public_key_pemStr):
    cipher_key_sym = None
    signature = None
    ciphertext = None
    private_key = None
    public_key = None
    iv = None
-   with open(ciphertext_file,'rb') as cipher_file:
-      # the length of iv is 16
-      # the length of encrypted key_sym is 256
-      # the length of signature is 256
-      iv = cipher_file.read(16)
-      cipher_file.seek(16);
-      cipher_key_sym = cipher_file.read(256)
-      cipher_file.seek(16+256);
-      signature = cipher_file.read(256)
-      cipher_file.seek(16+256+256);
-      ciphertext = cipher_file.read()
-      cipher_file.close()
 
-   with open(destination_private_key_filename, "rb") as key_file:
-      private_key = serialization.load_pem_private_key(
-         key_file.read(),
-         password=None,
-         backend=default_backend()
-      )
-   with open(sender_public_key_filename, "rb") as key_file:
-      public_key = serialization.load_pem_public_key(
-          key_file.read(),
-          backend=default_backend()
-      )
+   offset = 16
+   iv = dataRecv[0:offset]
+   cipher_key_sym = dataRecv[offset:offset+256]
+   offset += 256
+   signature = dataRecv[offset:offset+256]
+   offset += 256
+   ciphertext = dataRecv[offset:len(dataRecv)]
+
+   private_key = serialization.load_pem_private_key(
+      destination_private_key_pemStr,
+      password=None,
+      backend=default_backend()
+   )
+
+   public_key = serialization.load_pem_public_key(
+       sender_public_key_pemStr,
+       backend=default_backend()
+   )
 
    # verify file signature
    verifier = public_key.verifier(
@@ -222,11 +207,7 @@ def decrypt(destination_private_key_filename, sender_public_key_filename, cipher
    cipher = Cipher(algorithms.AES(key_sym), modes.OFB(iv), backend=default_backend())
    decryptor = cipher.decryptor()
    plaintext = decryptor.update(ciphertext) + decryptor.finalize()
-
-   # compose the plain text
-   with open(output_plaintext_file, "wb") as plaintext_file:
-      plaintext_file.write(plaintext)
-      plaintext_file.close()
+   return plaintext
 
 if __name__ == "__main__":
    main(sys.argv[1:])
