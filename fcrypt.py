@@ -48,6 +48,9 @@ def main(argv):
 # Keys will be stored in the output files private_key and public_key
 # respectively.
 def rsaKeygen():
+   privatePemStr = None
+   publicPemStr = None
+
    private_key = rsa.generate_private_key(
        public_exponent=65537,
        key_size=2048,
@@ -58,24 +61,16 @@ def rsaKeygen():
       format=serialization.PrivateFormat.TraditionalOpenSSL,
       encryption_algorithm=serialization.NoEncryption()
    )
-   # write private key into file
-   if os.path.isfile("./private_key"):
-      os.remove("./private_key")
-   f = open("./private_key", "wb")
-   f.write(pem)
-   f.close()
+   privatePemStr = pem
 
-   # write public key into file
    public_key = private_key.public_key()
    pem = public_key.public_bytes(
       encoding=serialization.Encoding.PEM,
       format=serialization.PublicFormat.SubjectPublicKeyInfo
    )
-   if os.path.isfile("./public_key"):
-      os.remove("./public_key")
-   f = open("./public_key", "wb")
-   f.write(pem)
-   f.close()
+   publicPemStr = pem
+
+   return (privatePemStr,publicPemStr)
 
 # This function will generate a symetric key for data encrytion.
 def keygen():
