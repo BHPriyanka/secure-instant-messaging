@@ -182,25 +182,25 @@ class DiffieHellman(object):
 			self.sharedSecret))
 		print("Shared key[{0}]: {1}".format(len(self.key), hexlify(self.key)))
 
-if __name__=="__main__":
-	"""
-	Run an example Diffie-Hellman exchange
-	"""
-	a = DiffieHellman()
-	b = DiffieHellman()
-
-	a.genKey(b.publicKey)
-	b.genKey(a.publicKey)
+#if __name__=="__main__":
+#	"""
+#	Run an example Diffie-Hellman exchange
+#	"""
+#	a = DiffieHellman()
+#	b = DiffieHellman()
+#
+#	a.genKey(b.publicKey)
+#	b.genKey(a.publicKey)
 
 	#a.showParams()
 	#a.showResults()
 	#b.showParams()
 	#b.showResults()
 
-	if(a.getKey() == b.getKey()):
-		print("Shared keys match.")
-		print("Key:", hexlify(a.key))
-	else:
-		print("Shared secrets didn't match!")
-		print("Shared secret A: ", a.genSecret(b.publicKey))
-		print("Shared secret B: ", b.genSecret(a.publicKey))
+#	if(a.getKey() == b.getKey()):
+#		print("Shared keys match.")
+#		print("Key:", hexlify(a.key))
+#	else:
+#		print("Shared secrets didn't match!")
+#		print("Shared secret A: ", a.genSecret(b.publicKey))
+#		print("Shared secret B: ", b.genSecret(a.publicKey))
