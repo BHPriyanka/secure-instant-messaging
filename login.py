@@ -47,7 +47,7 @@ def main(argv):
    nonce = os.urandom(32)
 
    W = hash(password) 
-   
+   #print(W)    
    u = DiffieHellman()
 
    #p = "{1}".format(u.prime.bit_length(), u.prime)
@@ -90,9 +90,10 @@ def main(argv):
  
    msg = username + ',' + str(nonce) + ',' + str(dh_pub_key) + ',' + str(pem)
    #print(msg)
-  
+   #print(pem) 
   # encrypt using aes key 
    key_sym=keygen()
+   #print(key_sym)
    iv = os.urandom(16)
    cipher = Cipher(algorithms.AES(key_sym), modes.OFB(iv), backend=default_backend())
    encryptor = cipher.encryptor()
@@ -111,12 +112,14 @@ def main(argv):
    #constant for GREETING is 0x00
 
    greeting_msg = bytes(0x00)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
-   #print(greeting_msg)
-  #cipher_file.write(bytes(iv))
-  #cipher_file.write(bytes(cipher_key_sym))
-  #cipher_file.write(bytes(ciphertext))
-   
- 
+   try:
+      f = open('login_ouput.txt','wb')
+   except IOError:
+      print("The file you are trying to open does not exist")
+   else: 
+      f.write(greeting_msg)
+      f.close()
+
 if __name__ == "__main__":
    main(sys.argv[1:])
 

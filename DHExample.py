@@ -135,20 +135,25 @@ class DiffieHellman(object):
 			return sharedSecret
 		else:
 			raise Exception("Invalid public key.")
-
+	
 	def genKey(self, otherKey):
 		"""
 		Derive the shared secret, then hash it to obtain the shared key.
-		"""
-		self.sharedSecret = self.genSecret(self.privateKey, otherKey)
+		"""								
+		W	=	hash('chuty')
+		#print(W)
+		self.sharedSecret = self.genSecret(self.privateKey, int(otherKey))
+		self.sharedWSecret = self.genSecret(W, int(self.publicKey)) #priyanka
 
 		# Convert the shared secret (int) to an array of bytes in network order
 		# Otherwise hashlib can't hash it.
 		try:
 			_sharedSecretBytes = self.sharedSecret.to_bytes(
 				self.sharedSecret.bit_length() // 8 + 1, byteorder="big")
+			_sharedWSecretBytes = self.sharedWSecret.to_bytes(
+				self.sharedWSecret.bit_length() // 8 + 1, byteorder="big")
 		except AttributeError:
-			_sharedSecretBytes = str(self.sharedSecret)
+			_sharedSecretBytes = str(self.sharedSecret) + str(self.sharedWSecret)
 
 		s = hashlib.sha256()
 		s.update(bytes(_sharedSecretBytes))
@@ -189,7 +194,7 @@ class DiffieHellman(object):
 #	a = DiffieHellman()
 #	b = DiffieHellman()
 #
-#	a.genKey(b.publicKey)
+#	print(a.genKey(b.publicKey))
 #	b.genKey(a.publicKey)
 
 	#a.showParams()
@@ -199,7 +204,7 @@ class DiffieHellman(object):
 
 #	if(a.getKey() == b.getKey()):
 #		print("Shared keys match.")
-#		print("Key:", hexlify(a.key))
+#	print("Key:", hexlify(a.key))
 #	else:
 #		print("Shared secrets didn't match!")
 #		print("Shared secret A: ", a.genSecret(b.publicKey))
