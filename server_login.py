@@ -26,8 +26,11 @@ def main():
  ciphertext = None
  iv = None
 
- offset = 16
- iv = msg[0:offset]
+ offset = 0
+ msg_type = msg[offset]
+ offset += 1
+ iv = msg[offset:offset+16]
+ offset += 16
  cipher_key_sym = msg[offset:offset+256]
  offset += 256
  ciphertext = msg[offset:len(msg)]
@@ -57,15 +60,16 @@ def main():
  #print(plaintext)
 
  #get data from plaintext
- split_data = plaintext.decode('UTF-8').split(',')
+ split_data = plaintext.split(',')
 
  username = split_data[0]
  nonce = split_data[1]
  #2^a mod p
  client_dh_pub_key = split_data[2]
+ client_rsa_pub_key = split_data[3]
+ print(client_rsa_pub_key)
+ client_rsa_auth_key =  serialization.load_pem_public_key(client_rsa_pub_key, backend=default_backend())
  #print(split_data[3])
- #client_rsa_auth_key =  serialization.load_pem_public_key(bytes(split_data[3],'UTF-8'), backend=default_backend())
- print(split_data[3])
  #print(username)
  #print(nonce)
  #print(client_dh_pub_key)

@@ -33,7 +33,7 @@ def main(argv):
       print("login.py -u <username> -x <password>")
       sys.exit(2)
    try:
-      opts, args = getopt.getopt(argv,"u:x:")
+      opts, args = getopt.getopt(argv,"ux")
    except getopt.GetoptError:
       sys.exit(2)
    for opt, arg in opts:
@@ -47,7 +47,7 @@ def main(argv):
    nonce = os.urandom(32)
 
    W = hash(password) 
-   #print(W)    
+   print(W)    
    u = DiffieHellman()
 
    #p = "{1}".format(u.prime.bit_length(), u.prime)
@@ -90,7 +90,7 @@ def main(argv):
  
    msg = username + ',' + str(nonce) + ',' + str(dh_pub_key) + ',' + str(pem)
    #print(msg)
-   #print(pem) 
+   print(pem) 
   # encrypt using aes key 
    key_sym=keygen()
    #print(key_sym)
@@ -98,7 +98,7 @@ def main(argv):
    cipher = Cipher(algorithms.AES(key_sym), modes.OFB(iv), backend=default_backend())
    encryptor = cipher.encryptor()
    
-   ciphertext = encryptor.update(str.encode(msg)) + encryptor.finalize()
+   ciphertext = encryptor.update(msg) + encryptor.finalize()
    #print('ciphertext len =',len(bytes(ciphertext)))
    
 
@@ -114,11 +114,10 @@ def main(argv):
    greeting_msg = bytes(0x00)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
    try:
       f = open('login_ouput.txt','wb')
-   except IOError:
-      print("The file you are trying to open does not exist")
-   else: 
       f.write(greeting_msg)
       f.close()
+   except IOError:
+      print("The file you are trying to open does not exist")
 
 if __name__ == "__main__":
    main(sys.argv[1:])
