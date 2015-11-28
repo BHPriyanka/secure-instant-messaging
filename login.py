@@ -33,7 +33,7 @@ def main(argv):
       print("login.py -u <username> -x <password>")
       sys.exit(2)
    try:
-      opts, args = getopt.getopt(argv,"ux")
+      opts, args = getopt.getopt(argv,"u:x:")
    except getopt.GetoptError:
       sys.exit(2)
    for opt, arg in opts:
