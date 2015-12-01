@@ -6,66 +6,68 @@ import time
 ClientList = []
 
 def main(argv):
-   serverPort = ''
+   commonPort = ''
    if len(argv) != 2:
-      print 'ChatServer.py -p <serverPort>'
+      print 'ChatServer.py -p <commonPort>'
       sys.exit(2)
    try:
       opts, args = getopt.getopt(argv,"hp:")
    except getopt.GetoptError:
-      print 'ChatServer.py -p <serverPort>'
+      print 'ChatServer.py -p <commonPort>'
       sys.exit(2)
    for opt, arg in opts:
       if opt == '-h':
-         print 'ChatServer.py -p <serverPort>'
+         print 'ChatServer.py -p <commonPort>'
          sys.exit()
       elif opt =="-p":
-         serverPort = arg
+         commonPort = arg
    try:
       server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
-      server_socket.bind((socket.gethostname(), int(serverPort)))
-      print 'Server Initialized at '+socket.gethostname()+':'+serverPort
-      thread.start_new_thread(RxTask,(server_socket,))
+      server_socket.bind((socket.gethostname(), int(commonPort)))
+      print 'Server Initialized at '+socket.gethostname()+':'+commonPort
    except:
       print 'error when init socket, exit...'
       sys.exit(2)
    while True:
-      pass
-
-def RxTask(server_socket):
-   # GREETING for login sequence init
-   # MESSAGE for any other cmd type, which is encrypted
-   # MsgType|User|MsgBody
-   global ClientList
-   while True:
       try:
-         data, addr = server_socket.recvfrom(2048)
-         print "received message:", data
+         dataRecv, addr = server_socket.recvfrom(4096)
+         print "received message length:", len(dataRecv)
          print "received addr:", addr
-         dataComponents = data.split('|')
-         msgType = dataComponents[0]
-         user = dataComponents[1]
-         msgBody= dataComponents[2]
-         if msgType == 'GREETING':
-            portInfo = createDynamicPort(LoginSequence, user, msgBody)
-            TxTask(server_socket,serverIP, serverPort, portInfo)
-         elif msgType == 'MESSAGE':
-            portInfo = createDynamicPort(user, msgBody)
-            TxTask(server_socket,serverIP, serverPort, portInfo):
-         time.sleep(10)
+         (dynamic_socket, dynamic_port) = createDynamicPort()
+         server_socket.sendto(dynamic_port, (serverIP, commonPort))
+         thread.start_new_thread(task,(dynamic_socket, dataRecv))
       except socket.error:
-         print 'Rx socket error!'
+         print 'socket error!'
          sys.exit(2)
       except:
          continue
 
-def TxTask(server_socket,serverIP, serverPort, msg):
+def createDynamicPort():
+   Dsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
+   Dsocket.bind((socket.gethostname(), 0))
+   return (Dsocket, Dsocket.getsockname()[1])
+
+def task(dynamic_socket, dataRecv):
+   # parse dataRecv: type|iv|key_sym|ciphertext
+   msg_type = dataRecv[0]
    try:
-      server_socket.sendto(msg, (serverIP, serverPort))
-      #print "sending message:", msg
-   except socket.error:
-      print 'Tx socket error!'
-      sys.exit(2)
+      if msg_type == 0x00:
+         LoginSequence(dynamic_socket,dataRecv)
+      elif msg_type == 0x01:
+         msg = RSAdecrypt(dataRecv)
+         (user, cipherCmd) = msg.split(',')
+         cmd = DHdecrypt(cipherCmd)
+         cmd_type = cmd.split(' ')[0]
+         if cmd_type == 'list':
+            ListSequence(user, cmd)
+         elif cmd_type == 'send':
+            FetchSequence(user, cmd)
+         elif cmd_type == 'logout':
+            LogoutSequence(user, cmd)
+   except:
+      print 'task error!'
+   finally:
+      dynamic_socket.close()
 
 
 def LoginSequence(clientInfo):
@@ -78,19 +80,13 @@ def LoginSequence(clientInfo):
 def PDMSequence(clientInfo):
    pass
 
+def ListSequence(clientInfo):
+   pass
+
 def FetchSequence(clientInfo):
    pass
 
 def LogoutSequence(clientInfo):
-   pass
-
-def createDynamicPort(user, msgBody):
-   # decrypt sequence type using user's K
-   createDynamicPort(sequenceType, user, msgBody)
-
-def createDynamicPort(sequenceType, user, msgBody):
-   # init new RxTask thread for the port
-   # port will close after specified sequence
    pass
 
 if __name__ == "__main__":
