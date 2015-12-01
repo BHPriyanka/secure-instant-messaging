@@ -34,7 +34,7 @@ def main(argv):
          print "received message length:", len(dataRecv)
          print "received addr:", addr
          (dynamic_socket, dynamic_port) = createDynamicPort()
-         server_socket.sendto(dynamic_port, (serverIP, commonPort))
+         server_socket.sendto(dynamic_port, (addr[0], int(addr[1])))
          thread.start_new_thread(task,(dynamic_socket, dataRecv))
       except socket.error:
          print 'socket error!'
