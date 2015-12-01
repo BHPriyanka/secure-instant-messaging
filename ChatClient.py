@@ -34,6 +34,8 @@ def main(argv):
    global serverCommPort
    global client_socket
    global commonPort
+   global serverIP
+   global serverPort
 
    if len(argv) != 4:
       print 'ChatClient.py -s <serverIP> -p <serverPort>'
@@ -67,8 +69,9 @@ def main(argv):
       print 'Common Port at '+client_socket.getsockname()[0]+":"+str(client_socket.getsockname()[1])
       # passively listening on incomming conncetion from other clients.
       thread.start_new_thread(listenTask,(client_socket))
-   except:
+   except :
       print 'error when init socket, exit...'
+      raise
       sys.exit(2)
    while True:
       # Cmd Task:
@@ -96,6 +99,7 @@ def main(argv):
 
 def createDynamicPort():
    Dsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
+   Dsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
    Dsocket.bind((socket.gethostname(), 0))
    return (Dsocket, Dsocket.getsockname()[1])
 
@@ -123,6 +127,7 @@ def AuthSequenceA(peerInfo):
    pass
 
 def AuthSequenceB(dynamic_socket, peerAdd, init_msg):
+   global server_socket
    # decrypt peer's user name
    (peername, r2) = RSAdecrypt(init_msg)
    # fetch peer's AuthKey
@@ -181,6 +186,9 @@ def keygen():
    return key
 
 def LoginSequence(username, password):
+   global server_socket
+   global serverIP
+   global serverPort
    # PDMSequence(username, password)
     #compute the nonce, a random no. of 32 bit
    nonce = os.urandom(32)
@@ -208,7 +216,6 @@ def LoginSequence(username, password):
    except:
       print("The provided backend does not implement RSABackend")
 
-
    #obtain the public key from the private key generated using RSA
    sender_public_key = sender_private_key.public_key()
    try:
@@ -220,12 +227,11 @@ def LoginSequence(username, password):
 
    #get the server public key from the file
    try:
-     with open('serverpubkey.pem', 'rb') as f1:
+      with open('serverpubkey.pem', 'rb') as f1:
           serverpubkey = serialization.load_pem_public_key(f1.read(), backend=default_backend())
    except:
-   print("The destination public key file is not present")
-     sys.exit(2)
-
+      print("The destination public key file is not present")
+      sys.exit(2)
 
    msg = username + ',' + str(nonce) + ',' + str(dh_pub_key) + ',' + str(pem)
    #print(msg)
@@ -252,6 +258,13 @@ def LoginSequence(username, password):
 
    greeting_msg = bytes(0x00)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
 
+   server_socket.sendto(greeting_msg, (serverIP, int(serverPort)))
+   (Dport, addr) = server_socket.recvfrom(4096)
+   print Dport
+   (dataRecv, addr) = server_socket.recvfrom(4096)
+   print dataRecv
+   # use Dport to finish the rest of sequence server_socket.sendto(other_msg, (serverIP, Dport))
+   exit()
 
    # waiting for ACK
    # send common port info and peer AuthKey

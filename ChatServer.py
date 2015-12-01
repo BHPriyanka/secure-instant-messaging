@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes, hmac
 from DHExample import DiffieHellman
-from login import keygen
+from ChatClient import keygen
 
 ClientList = []
 
@@ -36,6 +36,7 @@ def main(argv):
          commonPort = arg
    try:
       server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
+      server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
       server_socket.bind((socket.gethostname(), int(commonPort)))
       print 'Server Initialized at '+socket.gethostname()+':'+commonPort
    except:
@@ -47,26 +48,32 @@ def main(argv):
          print "received message length:", len(dataRecv)
          print "received addr:", addr
          (dynamic_socket, dynamic_port) = createDynamicPort()
-         server_socket.sendto(dynamic_port, (serverIP, commonPort))
-         thread.start_new_thread(task,(dynamic_socket, dataRecv))
+         print "Dport = ",dynamic_port
+         server_socket.sendto(str(dynamic_port), (addr[0], int(addr[1])))
+         print "Dport sent to client"
+         thread.start_new_thread(task,(dynamic_socket, addr, dataRecv))
       except socket.error:
          print 'socket error!'
+         raise
          sys.exit(2)
       except:
+         print 'error'
+         raise
          continue
 
 def createDynamicPort():
    Dsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
+   Dsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
    Dsocket.bind((socket.gethostname(), 0))
    return (Dsocket, Dsocket.getsockname()[1])
 
-def task(dynamic_socket, dataRecv):
+def task(dynamic_socket, addr, dataRecv):
    # parse dataRecv: type|iv|key_sym|ciphertext
    msg_type = dataRecv[0]
    try:
-      if msg_type == 0x00:
-         LoginSequence(dynamic_socket,dataRecv)
-      elif msg_type == 0x01:
+      if msg_type == bytes(0x00):
+         LoginSequence(dynamic_socket, addr, dataRecv)
+      elif msg_type == bytes(0x01):
          msg = RSAdecrypt(dataRecv)
          (user, cipherCmd) = msg.split(',')
          cmd = DHdecrypt(cipherCmd)
@@ -79,11 +86,12 @@ def task(dynamic_socket, dataRecv):
             LogoutSequence(user, cmd)
    except:
       print 'task error!'
+      raise
    finally:
       dynamic_socket.close()
 
 
-def LoginSequence(clientInfo):
+def LoginSequence(dynamic_socket, addr, dataRecv):
    #PDMSequence(clientInfo)
    # msg format greeting_msg = bytes(0x00)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
    cipher_key_sym = None
@@ -91,13 +99,13 @@ def LoginSequence(clientInfo):
    iv = None
 
    offset = 0
-   msg_type = msg[offset]
+   msg_type = dataRecv[offset]
    offset += 1
-   iv = msg[offset:offset+16]
+   iv = dataRecv[offset:offset+16]
    offset += 16
-   cipher_key_sym = msg[offset:offset+256]
+   cipher_key_sym = dataRecv[offset:offset+256]
    offset += 256
-   ciphertext = msg[offset:len(msg)]
+   ciphertext = dataRecv[offset:len(dataRecv)]
 
    try:
        with open('serverprivkey.pem', 'rb') as f:
@@ -161,6 +169,8 @@ def LoginSequence(clientInfo):
 
    #constant for GREETING is 0x00
    server_first_msg = bytes(0x00)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
+   dynamic_socket.sendto(server_first_msg, (addr[0], int(addr[1])))
+   exit()
 
    # ACK
    # waiting for the client send common port info and peer AuthKey
