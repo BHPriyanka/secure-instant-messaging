@@ -6,7 +6,7 @@ import base64
 import hashlib, ctypes
 from binascii import hexlify
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF, HKDFExpand
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import load_pem_private_key, load_pem_public_key
@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes, hmac
 from DHExample import DiffieHellman
-from ChatClient import keygen
+from general_functions import aeskeygen, keygen, RSADecrypt, RSAEncrypt, AESDecrypt, AESEncrypt
 
 ClientList = []
 
@@ -90,9 +90,7 @@ def task(dynamic_socket, addr, dataRecv):
    finally:
       dynamic_socket.close()
 
-
 def LoginSequence(dynamic_socket, addr, dataRecv):
-   #PDMSequence(clientInfo)
    # msg format greeting_msg = bytes(0x00)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
    cipher_key_sym = None
    ciphertext = None
@@ -115,70 +113,86 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
        sys.exit(2)
 
    # decrypt key_sym with reciever's private key
-   key_sym = serverprivkey.decrypt(
-       cipher_key_sym,
-       padding.OAEP(
-         mgf=padding.MGF1(algorithm=hashes.SHA1()),
-         algorithm=hashes.SHA1(),
-         label=None
-    ))
- 
-   #decrypt the ciphertext using the key_sym and iv
-   cipher = Cipher(algorithms.AES(key_sym), modes.OFB(iv), backend=default_backend())
-   decryptor = cipher.decryptor()
-   plaintext = decryptor.update(ciphertext) + decryptor.finalize()
+   key_sym = RSADecrypt(cipher_key_sym, serverprivkey)
 
+   #decrypt the ciphertext using the key_sym and iv
+   plaintext = AESDecrypt(key_sym, iv , ciphertext)
+   nonce = bytes(plaintext)[0:32]
+   plaintext = str(bytes(plaintext[32:len(bytes(plaintext))]))
+   
    #get data from plaintext
    split_data = plaintext.split(',')
-
    username = split_data[0]
-   nonce = split_data[1]
    #2^a mod p
-   client_dh_pub_key = split_data[2]
-   client_rsa_pub_key = split_data[3]
-   #print(client_rsa_pub_key)
+   client_dh_pub_key = split_data[1]
+   client_rsa_pub_key = split_data[2]
    client_rsa_auth_key =  serialization.load_pem_public_key(client_rsa_pub_key, backend=default_backend())
-   #print(split_data[3])
-   #print(username)
-   #print(nonce)
-   #print(client_dh_pub_key)
-   #W = hash('chuty')
-   #print(W)
+
    #calculate 2^b mod p
    u = DiffieHellman()
    b = str(u.privateKey)
    dh_key_server = str(u.publicKey)
    p = str(u.prime)
-
    u.genHashSecret(client_dh_pub_key)
-
-   #print("Key:", hexlify(u.key))
-   #print(hexlify(u.hashsecret))
-
-   msg = nonce + ',' + dh_key_server + ',' + u.hashsecret
+   msg = nonce + dh_key_server + ',' + u.hashsecret
 
    #generate a aes key , iv and use it to encrypt the above msg
    aes_key = keygen()
    iv = os.urandom(16)
-   cipher = Cipher(algorithms.AES(aes_key), modes.OFB(iv), backend=default_backend())
-   encryptor = cipher.encryptor()
+   ciphertext = AESEncrypt(msg, aes_key, iv)
 
-   ciphertext = encryptor.update(msg) + encryptor.finalize()
    #encrypt the symmetric key with client's rsa public key
-   cipher_key_sym = client_rsa_auth_key.encrypt(aes_key, padding.OAEP( mgf=padding.MGF1(algorithm=hashes.SHA1()),algorithm=hashes.SHA1(),label=None))
+   cipher_key_sym = RSAEncrypt(aes_key, client_rsa_auth_key)
 
    #constant for GREETING is 0x00
    server_first_msg = bytes(0x00)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
    dynamic_socket.sendto(server_first_msg, (addr[0], int(addr[1])))
-   exit()
 
-   # ACK
-   # waiting for the client send common port info and peer AuthKey
-   # register those into eph-table
+   (dataRecv, addr) = dynamic_socket.recvfrom(4096)
+   print('Verifying the hashes computed and received')
+  
+   try:
+      if dataRecv == u.hashsecret:
+	 #generate shared key
+         u.genKey(client_dh_pub_key)
+   except:
+     print('hashes does not match')
+     sys.exit(2)
+   
+   print('Sending ACK')
+   sym_key_shared = aeskeygen(u.key)
+   iv = os.urandom(16)
+   acknowledge = AESEncrypt('ACK', sym_key_shared, iv)
+   msg = bytes(iv) + bytes(acknowledge)
+   dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
+
+   print('Waiting for networkinfo')
+   (dataRecv, addr) = dynamic_socket.recvfrom(4096)
+   offset = 0
+   new_iv = dataRecv[offset:offset+16]
+   offset += 16
+   iv = dataRecv[offset:offset+16]
+   offset += 16
+   cipher_key_new = dataRecv[offset:offset+256]
+   offset += 256
+   nwciphertext = dataRecv[offset:len(dataRecv)]
+   # decrypt cipher_key_new with reciever's private key
+   new_key_sym = RSADecrypt(cipher_key_new, serverprivkey)
+
+   #decrypt the nwciphertext 
+   plaintext = AESDecrypt(new_key_sym, new_iv, nwciphertext)
+   split_data = plaintext.split(',')
+   user = str(bytes(split_data[0]))
+   encnwinfo = split_data[1]
+
+   #decrypt the nwinfo uing DH key
+   plaintext = AESDecrypt(sym_key_shared, iv, encnwinfo)
+   ip_address = plaintext.split(',')[0]
+   port_num = plaintext.split(',')[1]
+   print('Received common port and ip')
+  
+   #register those into eph-table
    pass
-
-#def PDMSequence(clientInfo):
-#   pass
 
 def ListSequence(clientInfo):
    pass

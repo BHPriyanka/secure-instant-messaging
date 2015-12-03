@@ -140,18 +140,13 @@ class DiffieHellman(object):
 		"""
 		Derive the shared secret, then hash it to obtain the shared key.
 		"""								
-#		W	=	hash('chuty')
-		#print(W)
 		self.sharedSecret = self.genSecret(self.privateKey, int(otherKey))
-#		self.sharedWSecret = self.genSecret(W, int(self.publicKey)) #priyanka
 
 		# Convert the shared secret (int) to an array of bytes in network order
 		# Otherwise hashlib can't hash it.
 		try:
 			_sharedSecretBytes = self.sharedSecret.to_bytes(
 				self.sharedSecret.bit_length() // 8 + 1, byteorder="big")
-			#_sharedWSecretBytes = self.sharedWSecret.to_bytes(
-			#	self.sharedWSecret.bit_length() // 8 + 1, byteorder="big")
 		except AttributeError:
 			_sharedSecretBytes = str(self.sharedSecret) 
 
@@ -166,7 +161,7 @@ class DiffieHellman(object):
 		W	=	hash('chuty')
 		#print(W)
 		self.sharedSecret = self.genSecret(self.privateKey, int(otherKey))
-		self.sharedWSecret = self.genSecret(W, int(self.publicKey)) #priyanka
+		self.sharedWSecret = self.genSecret(W, int(self.publicKey)) 
 
 		# Convert the shared secret (int) to an array of bytes in network order
 		# Otherwise hashlib can't hash it.
@@ -181,6 +176,30 @@ class DiffieHellman(object):
 		s = hashlib.sha256()
 		s.update(bytes(_sharedSecretBytes))
 		self.hashsecret = s.digest()
+
+        def genHashSecret1(self, otherKey):
+                """
+                Derive the shared secret, then hash it to obtain the shared key.
+                """
+                W       =       hash('chuty')
+                #print(W)
+                self.sharedSecret = self.genSecret(self.privateKey, int(otherKey))
+                self.sharedWSecret = self.genSecret(W, int(otherKey)) #priyanka
+
+                # Convert the shared secret (int) to an array of bytes in network order
+                # Otherwise hashlib can't hash it.
+                try:
+                        _sharedSecretBytes = self.sharedSecret.to_bytes(
+                                self.sharedSecret.bit_length() // 8 + 1, byteorder="big")
+                        _sharedWSecretBytes = self.sharedWSecret.to_bytes(
+                                self.sharedWSecret.bit_length() // 8 + 1, byteorder="big")
+                except AttributeError:
+                        _sharedSecretBytes = str(self.sharedSecret) + str(self.sharedWSecret)
+
+                s = hashlib.sha256()
+                s.update(bytes(_sharedSecretBytes))
+                self.hashsecret1 = s.digest()
+
 	def getKey(self):
 		"""
 		Return the shared secret key
