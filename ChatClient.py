@@ -61,17 +61,18 @@ def main(argv):
       # Server Communication Port
       (server_socket,serverCommPort) = createDynamicPort()
       print 'Server Communication Port at '+server_socket.getsockname()[0]+":"+str(server_socket.getsockname()[1])
+      # Common Port
+      (client_socket, commonPort) = createDynamicPort()
+      print 'Common Port at '+client_socket.getsockname()[0]+":"+str(client_socket.getsockname()[1])
+
       # start login sequence
       username = raw_input("user:")
       password = raw_input("password:")
       print username+":"+password
       LoginSequence(username, password)
 
-      # Common Port
-      #(client_socket, commonPort) = createDynamicPort()
-      #print 'Common Port at '+client_socket.getsockname()[0]+":"+str(client_socket.getsockname()[1])
       # passively listening on incomming conncetion from other clients.
-      thread.start_new_thread(listenTask,(client_socket))
+      thread.start_new_thread(listenTask,(client_socket,))
    except :
       print 'error when init socket, exit...'
       raise
@@ -85,6 +86,7 @@ def main(argv):
       cmdComponents = re.split('\W+', inputStr)
       if cmdComponents[0] == 'list':
          # list sequence
+	 ListSequence(username)
          print 'list sequence'
       elif cmdComponents[0] == 'send':
          if len(cmdComponents)<3:
@@ -179,6 +181,9 @@ def LoginSequence(username, password):
    global serverPort
    global client_socket
    global commonPort
+   global dh_aes_key
+   global serverpubkey
+
    #compute the nonce, a random no. of 32 bit, W from password 
    nonce = os.urandom(32)
    W = hash(password)
@@ -285,10 +290,6 @@ def LoginSequence(username, password):
    msg = str(bytes(plaintext))
    print('Recevied ACK')
 
-   # Common Port
-   (client_socket, commonPort) = createDynamicPort()
-   print 'Common Port at '+client_socket.getsockname()[0]+":"+str(client_socket.getsockname()[1])
-
    networkinfo = client_socket.getsockname()[0] + ',' + str(client_socket.getsockname()[1])
 
    # encrypt the network info using DH Key
@@ -309,7 +310,25 @@ def LoginSequence(username, password):
    server_socket.sendto(info_msg, (serverIP, int(Dport)))  
    pass
 
-def FetchSequence(clientInfo):
+def ListSequence(username):
+   global dh_aes_key
+   global serverpubkey
+
+   #format of list command {Alice,K{list}} server-public-key
+   #encrypt the list command using the DH shared key
+   iv = os.urandom(16)
+   listinfo = AESEncryppt('list', dh_aes_key, iv)
+
+   list_msg = username + ',' + bytes(listinfo)
+   #encrypt username and list command using new aes key and then encrypt the aes key using server public key
+   new_iv = os.urandom(16)
+   sym_key = keygen()
+   enrypted_list = AESEncrypt(list_msg, sym_key, new_iv)
+
+   cipher_sym_key = RSAEncrypt(sym_key, serverpubkey)
+   send_list_msg = bytes(new_iv) + byte(iv) + bytes(cipher_sym_key) + bytes(encrypted_list)
+   server_socket.sendto(send_list_msg, (serverIP, int(Dport)))
+
    pass
 
 def LogoutSequence(clientInfo):

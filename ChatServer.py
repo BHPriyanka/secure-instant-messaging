@@ -17,6 +17,9 @@ from DHExample import DiffieHellman
 from general_functions import aeskeygen, keygen, RSADecrypt, RSAEncrypt, AESDecrypt, AESEncrypt
 
 ClientList = []
+user_networkinfo = []
+user_DHkey = []
+user_moduli = []
 
 def main(argv):
    commonPort = ''
@@ -91,6 +94,10 @@ def task(dynamic_socket, addr, dataRecv):
       dynamic_socket.close()
 
 def LoginSequence(dynamic_socket, addr, dataRecv):
+   global user_DHkey
+   global user_networkinfo
+   global serverprivkey
+
    # msg format greeting_msg = bytes(0x00)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
    cipher_key_sym = None
    ciphertext = None
@@ -192,13 +199,58 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    print('Received common port and ip')
   
    #register those into eph-table
+   c1 = {}
+   c1.setdefault(username, []).append(ip_address)
+   c1.setdefault(username, []).append(port_num)
+   c1.setdefault(username, []).append(client_rsa_auth_key)
+   user_networkinfo.append(c1)
+   print(user_networkinfo)
+   c2 = {}
+   c2 = {username:hexlify(u.key)}
+   user_DHkey.append(c2)
+   print(user_DHkey)
+   print('Registered the client')
    pass
 
-def ListSequence(clientInfo):
+def ListSequence(info):
+   global serverprivkey
+   global user_DHkey
+   global user_networkinfo
+
+   (dataRecv, addr) = dynamic_socket.recvfrom(4096)
+   offset = 0
+   new_iv = dataRecv[offset:offset+16]
+   offset += 16
+   iv = dataRecv[offset:offset+16]
+   offset += 16
+   cipher_key_new = dataRecv[offset:offset+256]
+   offset += 256
+   nwcipherlist = dataRecv[offset:len(dataRecv)]
+   # decrypt cipher_key_new with reciever's private key
+   new_key_sym = RSADecrypt(cipher_key_new, serverprivkey)
+
+   #decrypt the nwciphertext
+   plaintext = AESDecrypt(new_key_sym, new_iv, nwcipherlist)
+   split_data = plaintext.split(',')
+   username = str(bytes(split_data[0]))
+   listinfo = str(split_data[1])
+   try:
+      if listinfo == 'list':
+	 #get list of users from usertable on server
+         for u in user_DHkey:
+	     list_users = u[0]
+      elif:
+         print('User entry does not exist')
+   print(list_users)
+  
+   except:
+      print('error')
+
+   dynamic_socket.sendto(list_users, (addr[0], int(addr[1])))
    pass
 
-def FetchSequence(clientInfo):
-   pass
+#def SendSequence(clientInfo):
+#   pass
 
 def LogoutSequence(clientInfo):
    pass
