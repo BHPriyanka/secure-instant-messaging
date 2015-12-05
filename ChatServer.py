@@ -17,8 +17,8 @@ from DHExample import DiffieHellman
 from general_functions import aeskeygen, keygen, RSADecrypt, RSAEncrypt, AESDecrypt, AESEncrypt
 
 ClientList = []
-user_networkinfo = []
-user_DHkey = []
+user_networkinfo = {}
+user_DHkey = {}
 user_moduli = []
 
 def main(argv):
@@ -106,7 +106,7 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    global user_DHkey
    global user_networkinfo
    global serverprivkey
-
+ 
    # msg format greeting_msg = bytes(0x00)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
    cipher_key_sym = None
    ciphertext = None
@@ -208,36 +208,23 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    print('Received common port and ip')
   
    #register those into eph-table
-   c1 = {}
-   c1.setdefault(username, []).append(ip_address)
-   c1.setdefault(username, []).append(port_num)
-   c1.setdefault(username, []).append(client_rsa_auth_key)
-   user_networkinfo.append(c1)
-   #print(user_networkinfo)
-   c2 = {}
-   c2 = {username:u.key}
-   user_DHkey.append(c2)
+   user_networkinfo.setdefault(username, []).append(ip_address)
+   user_networkinfo.setdefault(username, []).append(port_num)
+   user_networkinfo.setdefault(username, []).append(client_rsa_auth_key)
+   
+   user_DHkey.setdefault(username, []).append(u.key)
    print('Registered the client')
-   #print(user_networkinfo)
+
    try:
-      dhkey = ([u[username] for u in user_DHkey if username in u][0])
+      dhkey = user_DHkey[username]
    except:
       print('Client does not exist')
-   sym_dhkey = aeskeygen(dhkey)
+   sym_dhkey = aeskeygen(bytes(dhkey))
 
    #use this shared key to encrypt the list of users
-   try:
-      list_users = []
-      for u in user_networkinfo:
-         keys = str(u.keys()).strip('[]')
-         list_users.append(keys)
-   except:
-      print('error')
-   #print(list_users)
+   list_users = user_networkinfo.keys()
+   
    iv = os.urandom(16)
-   #print str(list_users)[1:-1])
-   #list_users = re.sub('""', '', str(list_users)[1:-1])
-   print(list_users)
    enc_list_users = AESEncrypt(str(list_users)[1:-1], sym_dhkey, iv)
    msg = bytes(iv) + bytes(enc_list_users)
    dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
@@ -250,30 +237,7 @@ def ListSequence(clientinfo):
    global user_networkinfo
    print('inside list sequence method')
    
-   try:
-      dhkey = ([u[username] for u in user_DHkey if username in u][0])
-   except:
-      print('Client does not exist')
-   sym_dhkey = aeskeygen(dhkey)
-
-   #use this shared key to encrypt the list of users
-   try:
-      list_users = []
-      for u in user_networkinfo:
-         keys = str(u.keys()).strip('[]')
-         list_users.append(keys)
-   except:
-      print('error')
-   #print(list_users)
-   iv = os.urandom(16)
-   #print str(list_users)[1:-1])
-   #list_users = re.sub('""', '', str(list_users)[1:-1])
-   print(list_users)
-   enc_list_users = AESEncrypt(str(list_users)[1:-1], sym_dhkey, iv)
-   msg = bytes(iv) + bytes(enc_list_users)
-   dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
-   print('send list of users')
-
+   
    pass
 
 #def SendSequence(clientInfo):

@@ -317,7 +317,9 @@ def LoginSequence(username, password):
    ciphernew = dataRecv[offset:len(dataRecv)]
    #decrypt ciphernew
    text = AESDecrypt(dh_aes_key, iv1, ciphernew)
-   print(text)
+   split_data = str(bytes(text)).split(',')
+   print split_data
+   
    pass
 
 def ListSequence(clientinfo):
