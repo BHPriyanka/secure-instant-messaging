@@ -324,12 +324,12 @@ def ListSequence(clientinfo):
 
    list_msg = clientinfo + ',' + bytes(listinfo)
    #encrypt username and list command using new aes key and then encrypt the aes key using server public key
-   new_iv = os.urandom(16)
+   #new_iv = os.urandom(16)
    sym_key = keygen()
-   encrypted_list = AESEncrypt(list_msg, sym_key, new_iv)
+   encrypted_list = AESEncrypt(list_msg, sym_key, iv)
 
    cipher_sym_key = RSAEncrypt(sym_key, serverpubkey)
-   send_list_msg = bytes(0x01) + bytes(new_iv) + bytes(iv) + bytes(cipher_sym_key) + bytes(encrypted_list)
+   send_list_msg = bytes(0x01) + bytes(iv) + bytes(cipher_sym_key) + bytes(encrypted_list)
    print('Sending list command')
    server_socket.sendto(send_list_msg, (serverIP, int(Dport)))
   
@@ -347,13 +347,30 @@ def ListSequence(clientinfo):
 
 def LogoutSequence(clientInfo):
    global dh_aes_key
-   global servrpubkey
+   global serverpubkey
+   global Dport
+   global serverIP
 
    #message format for logout {username,K{logout},N1}serverpublickey
    #encrypt the logout command using the DH shared key
-   #iv = os.random(16)
-   #logoutinfo = AESEncrypt('logout', dh_aes_key, iv)
-   
+   iv = os.urandom(16)
+   logoutinfo = AESEncrypt('logout', dh_aes_key, iv)
+
+   #compute the nonce
+   N1 = os.urandom(32)
+   print('N1: ', N1)
+   exitinfo = bytes(N1) + ',' + bytes(username) + ',' + bytes(logoutinfo)
+
+   #encrypt using aes key
+   key_sym=keygen()
+   #iv = os.urandom(16)
+   ciphertext = AESEncrypt(exitinfo, key_sym, iv)
+
+   #encrypt the symmetric key with rsa public key
+   cipher_key_sym = serverpubkey.encrypt(key_sym, padding.OAEP( mgf=padding.MGF1(algorithm=hashes.SHA1()),algorithm=hashes.SHA1(),label=None))
+
+   exit_msg = bytes(0x01)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
+   server_socket.sendto(exit_msg, (serverIP, int(serverPort))) 
    pass
 
 if __name__ == "__main__":

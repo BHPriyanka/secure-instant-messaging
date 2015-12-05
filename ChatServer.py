@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes, hmac
 from DHExample import DiffieHellman
-from general_functions import aeskeygen, keygen, RSADecrypt, RSAEncrypt, AESDecrypt, AESEncrypt
+from general_functions import aeskeygen, keygen, RSADecrypt, RSAEncrypt, AESDecrypt, AESEncrypt, extractmsg
 
 ClientList = []
 user_networkinfo = {}
@@ -87,14 +87,15 @@ def task(dynamic_socket, addr, dataRecv):
          #(user, cipherCmd) = msg.split(',')
          #cmd = DHdecrypt(cipherCmd)
          #cmd_type = cmd.split(' ')[0]
-         split_data = extractmsg(serverprivkey)
-         user = str(bytes(split_data[0]))
+         #split_data = extractmsg(serverprivkey, dataRecv)
+	 #user
          cmd_type = str(split_data[1])
+         print('----------------')
          if cmd_type == 'list':
             ListSequence(user)
          elif cmd_type == 'send':
             FetchSequence(user, cmd)
-         elif cmd_type == 'logout':
+         elif cmd_type == 'exit':
             LogoutSequence(user, cmd)
    except:
       print 'task error!'
@@ -214,7 +215,9 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    
    user_DHkey[username] = sym_key_shared
    print('Registered the client')
-   
+  
+   #-------------------------------------------------
+
    pass
 
 def ListSequence(clientinfo):
