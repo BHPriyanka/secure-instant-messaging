@@ -1,5 +1,5 @@
 import sys, getopt, os
-import socket
+import socket, re
 import thread
 import time
 import base64
@@ -22,6 +22,8 @@ user_DHkey = []
 user_moduli = []
 
 def main(argv):
+   global serverprivkey
+
    commonPort = ''
    if len(argv) != 2:
       print 'ChatServer.py -p <commonPort>'
@@ -71,18 +73,25 @@ def createDynamicPort():
    return (Dsocket, Dsocket.getsockname()[1])
 
 def task(dynamic_socket, addr, dataRecv):
+   global serverprivkey
+
    # parse dataRecv: type|iv|key_sym|ciphertext
    msg_type = dataRecv[0]
    try:
       if msg_type == bytes(0x00):
          LoginSequence(dynamic_socket, addr, dataRecv)
+         print('LOGIN DONE')
       elif msg_type == bytes(0x01):
-         msg = RSAdecrypt(dataRecv)
-         (user, cipherCmd) = msg.split(',')
-         cmd = DHdecrypt(cipherCmd)
-         cmd_type = cmd.split(' ')[0]
+         print('msg is 0x01')
+         #msg = RSAdecrypt(dataRecv)
+         #(user, cipherCmd) = msg.split(',')
+         #cmd = DHdecrypt(cipherCmd)
+         #cmd_type = cmd.split(' ')[0]
+         split_data = extractmsg(serverprivkey)
+         user = str(bytes(split_data[0]))
+         cmd_type = str(split_data[1])
          if cmd_type == 'list':
-            ListSequence(user, cmd)
+            ListSequence(user)
          elif cmd_type == 'send':
             FetchSequence(user, cmd)
          elif cmd_type == 'logout':
@@ -204,49 +213,67 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    c1.setdefault(username, []).append(port_num)
    c1.setdefault(username, []).append(client_rsa_auth_key)
    user_networkinfo.append(c1)
-   print(user_networkinfo)
+   #print(user_networkinfo)
    c2 = {}
-   c2 = {username:hexlify(u.key)}
+   c2 = {username:u.key}
    user_DHkey.append(c2)
-   print(user_DHkey)
    print('Registered the client')
+   #print(user_networkinfo)
+   try:
+      dhkey = ([u[username] for u in user_DHkey if username in u][0])
+   except:
+      print('Client does not exist')
+   sym_dhkey = aeskeygen(dhkey)
+
+   #use this shared key to encrypt the list of users
+   try:
+      list_users = []
+      for u in user_networkinfo:
+         keys = str(u.keys()).strip('[]')
+         list_users.append(keys)
+   except:
+      print('error')
+   #print(list_users)
+   iv = os.urandom(16)
+   #print str(list_users)[1:-1])
+   #list_users = re.sub('""', '', str(list_users)[1:-1])
+   print(list_users)
+   enc_list_users = AESEncrypt(str(list_users)[1:-1], sym_dhkey, iv)
+   msg = bytes(iv) + bytes(enc_list_users)
+   dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
+   print('send list of users')
    pass
 
-def ListSequence(info):
+def ListSequence(clientinfo):
    global serverprivkey
    global user_DHkey
    global user_networkinfo
-
-   (dataRecv, addr) = dynamic_socket.recvfrom(4096)
-   offset = 0
-   new_iv = dataRecv[offset:offset+16]
-   offset += 16
-   iv = dataRecv[offset:offset+16]
-   offset += 16
-   cipher_key_new = dataRecv[offset:offset+256]
-   offset += 256
-   nwcipherlist = dataRecv[offset:len(dataRecv)]
-   # decrypt cipher_key_new with reciever's private key
-   new_key_sym = RSADecrypt(cipher_key_new, serverprivkey)
-
-   #decrypt the nwciphertext
-   plaintext = AESDecrypt(new_key_sym, new_iv, nwcipherlist)
-   split_data = plaintext.split(',')
-   username = str(bytes(split_data[0]))
-   listinfo = str(split_data[1])
+   print('inside list sequence method')
+   
    try:
-      if listinfo == 'list':
-	 #get list of users from usertable on server
-         for u in user_DHkey:
-	     list_users = u[0]
-      elif:
-         print('User entry does not exist')
-   print(list_users)
-  
+      dhkey = ([u[username] for u in user_DHkey if username in u][0])
+   except:
+      print('Client does not exist')
+   sym_dhkey = aeskeygen(dhkey)
+
+   #use this shared key to encrypt the list of users
+   try:
+      list_users = []
+      for u in user_networkinfo:
+         keys = str(u.keys()).strip('[]')
+         list_users.append(keys)
    except:
       print('error')
+   #print(list_users)
+   iv = os.urandom(16)
+   #print str(list_users)[1:-1])
+   #list_users = re.sub('""', '', str(list_users)[1:-1])
+   print(list_users)
+   enc_list_users = AESEncrypt(str(list_users)[1:-1], sym_dhkey, iv)
+   msg = bytes(iv) + bytes(enc_list_users)
+   dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
+   print('send list of users')
 
-   dynamic_socket.sendto(list_users, (addr[0], int(addr[1])))
    pass
 
 #def SendSequence(clientInfo):
@@ -254,6 +281,7 @@ def ListSequence(info):
 
 def LogoutSequence(clientInfo):
    pass
+
 
 if __name__ == "__main__":
    main(sys.argv[1:])

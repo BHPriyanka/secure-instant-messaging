@@ -183,6 +183,7 @@ def LoginSequence(username, password):
    global commonPort
    global dh_aes_key
    global serverpubkey
+   global Dport
 
    #compute the nonce, a random no. of 32 bit, W from password 
    nonce = os.urandom(32)
@@ -308,30 +309,49 @@ def LoginSequence(username, password):
    info_msg = bytes(new_iv) + bytes(iv) + bytes(cipher_new_key) + bytes(encrypted_msg)
    print('Sending common port info and peer AuthKey')
    server_socket.sendto(info_msg, (serverIP, int(Dport)))  
+
+   (dataRecv, addr) = server_socket.recvfrom(4096) 
+   offset = 0
+   iv1 = dataRecv[offset:offset+16]
+   offset += 16
+   ciphernew = dataRecv[offset:len(dataRecv)]
+   #decrypt ciphernew
+   text = AESDecrypt(dh_aes_key, iv1, ciphernew)
+   print(text)
    pass
 
-def ListSequence(username):
+def ListSequence(clientinfo):
    global dh_aes_key
    global serverpubkey
-
+   global Dport
+   global serverIP
    #format of list command {Alice,K{list}} server-public-key
    #encrypt the list command using the DH shared key
    iv = os.urandom(16)
-   listinfo = AESEncryppt('list', dh_aes_key, iv)
+   listinfo = AESEncrypt('list', dh_aes_key, iv)
 
-   list_msg = username + ',' + bytes(listinfo)
+   list_msg = clientinfo + ',' + bytes(listinfo)
    #encrypt username and list command using new aes key and then encrypt the aes key using server public key
    new_iv = os.urandom(16)
    sym_key = keygen()
-   enrypted_list = AESEncrypt(list_msg, sym_key, new_iv)
+   encrypted_list = AESEncrypt(list_msg, sym_key, new_iv)
 
    cipher_sym_key = RSAEncrypt(sym_key, serverpubkey)
-   send_list_msg = bytes(new_iv) + byte(iv) + bytes(cipher_sym_key) + bytes(encrypted_list)
+   send_list_msg = bytes(0x01) + bytes(new_iv) + bytes(iv) + bytes(cipher_sym_key) + bytes(encrypted_list)
+   print('Sending list command')
    server_socket.sendto(send_list_msg, (serverIP, int(Dport)))
 
    pass
 
 def LogoutSequence(clientInfo):
+   global dh_aes_key
+   global servrpubkey
+
+   #message format for logout {username,K{logout},N1}serverpublickey
+   #encrypt the logout command using the DH shared key
+   #iv = os.random(16)
+   #logoutinfo = AESEncrypt('logout', dh_aes_key, iv)
+   
    pass
 
 if __name__ == "__main__":
