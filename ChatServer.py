@@ -212,32 +212,29 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    user_networkinfo.setdefault(username, []).append(port_num)
    user_networkinfo.setdefault(username, []).append(client_rsa_auth_key)
    
-   user_DHkey.setdefault(username, []).append(u.key)
+   user_DHkey[username] = sym_key_shared
    print('Registered the client')
-
-   try:
-      dhkey = user_DHkey[username]
-   except:
-      print('Client does not exist')
-   sym_dhkey = aeskeygen(bytes(dhkey))
-
-   #use this shared key to encrypt the list of users
-   list_users = user_networkinfo.keys()
    
-   iv = os.urandom(16)
-   enc_list_users = AESEncrypt(str(list_users)[1:-1], sym_dhkey, iv)
-   msg = bytes(iv) + bytes(enc_list_users)
-   dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
-   print('send list of users')
    pass
 
 def ListSequence(clientinfo):
    global serverprivkey
    global user_DHkey
    global user_networkinfo
-   print('inside list sequence method')
-   
-   
+  
+   try:
+      dhkey = user_DHkey[username]
+   except:
+      print('Client does not exist')
+  
+   #use this shared key to encrypt the list of users
+   list_users = user_networkinfo.keys()
+   iv = os.urandom(16)
+   enc_list_users = AESEncrypt(str(list_users)[1:-1], dhkey, iv)
+   msg = bytes(iv) + bytes(enc_list_users)
+   #print hexlify(dhkey)
+   dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
+   print('Send list of users')
    pass
 
 #def SendSequence(clientInfo):

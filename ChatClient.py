@@ -26,7 +26,7 @@ password = None
 # remote
 serverIP = None
 serverPort = None
-
+dh_aes_key = None
 def hash32(value):
    # use this to calculate W from password string.
    return hash(value) & 0xffffffff
@@ -289,6 +289,7 @@ def LoginSequence(username, password):
    #decrypt the ciphertext using the key_sym and iv
    plaintext = AESDecrypt(dh_aes_key, iv, ciphertext)
    msg = str(bytes(plaintext))
+   print(hexlify(dh_aes_key))
    print('Recevied ACK')
 
    networkinfo = client_socket.getsockname()[0] + ',' + str(client_socket.getsockname()[1])
@@ -309,17 +310,6 @@ def LoginSequence(username, password):
    info_msg = bytes(new_iv) + bytes(iv) + bytes(cipher_new_key) + bytes(encrypted_msg)
    print('Sending common port info and peer AuthKey')
    server_socket.sendto(info_msg, (serverIP, int(Dport)))  
-
-   (dataRecv, addr) = server_socket.recvfrom(4096) 
-   offset = 0
-   iv1 = dataRecv[offset:offset+16]
-   offset += 16
-   ciphernew = dataRecv[offset:len(dataRecv)]
-   #decrypt ciphernew
-   text = AESDecrypt(dh_aes_key, iv1, ciphernew)
-   split_data = str(bytes(text)).split(',')
-   print split_data
-   
    pass
 
 def ListSequence(clientinfo):
@@ -342,6 +332,16 @@ def ListSequence(clientinfo):
    send_list_msg = bytes(0x01) + bytes(new_iv) + bytes(iv) + bytes(cipher_sym_key) + bytes(encrypted_list)
    print('Sending list command')
    server_socket.sendto(send_list_msg, (serverIP, int(Dport)))
+  
+   #receive list of users active on the server 
+   (dataRecv, addr) = server_socket.recvfrom(4096)
+   offset = 0
+   iv1 = dataRecv[offset:offset+16]
+   offset += 16
+   ciphernew = dataRecv[offset:len(dataRecv)]
+   #decrypt ciphernew
+   text = AESDecrypt(dh_aes_key, iv1, ciphernew)
+   print str(bytes(text))
 
    pass
 
