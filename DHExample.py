@@ -27,6 +27,10 @@ except (AttributeError, ImportError):
 	random_function = OpenSSL.rand.bytes
 	random_provider = "OpenSSL"
 
+def hash32(value):
+   # use this to calculate W from password string.
+   return hash(value) & 0xffffffff
+
 class DiffieHellman(object):
 	"""
 	A reference implementation of the Diffie-Hellman protocol.
@@ -115,6 +119,12 @@ class DiffieHellman(object):
 		"""
 		return pow(self.generator, self.privateKey, self.prime)
 
+	def genPublicModuli(self, W):
+		"""
+		Generate a public key X with g**x % p.
+		"""
+		return pow(self.generator, W, self.prime)
+
 	def checkPublicKey(self, otherKey):
 		"""
 		Check the other party's public key to make sure it's valid.
@@ -158,7 +168,7 @@ class DiffieHellman(object):
 		"""
 		Derive the shared secret, then hash it to obtain the shared key.
 		"""								
-		W	=	hash('chuty')
+		W	=	hash32('chuty')
 		#print(W)
 		self.sharedSecret = self.genSecret(self.privateKey, int(otherKey))
 		self.sharedWSecret = self.genSecret(W, int(self.publicKey)) 
@@ -181,7 +191,7 @@ class DiffieHellman(object):
                 """
                 Derive the shared secret, then hash it to obtain the shared key.
                 """
-                W       =       hash('chuty')
+                W       =       hash32('chuty')
                 #print(W)
                 self.sharedSecret = self.genSecret(self.privateKey, int(otherKey))
                 self.sharedWSecret = self.genSecret(W, int(otherKey)) #priyanka
@@ -229,25 +239,13 @@ class DiffieHellman(object):
 			self.sharedSecret))
 		print("Shared key[{0}]: {1}".format(len(self.key), hexlify(self.key)))
 
-#if __name__=="__main__":
-#	"""
-#	Run an example Diffie-Hellman exchange
-#	"""
-#	a = DiffieHellman()
-#	b = DiffieHellman()
-#
-#	print(a.genKey(b.publicKey))
-#	b.genKey(a.publicKey)
+if __name__=="__main__":
+	"""
+	Run an example Diffie-Hellman exchange
+	"""
+	passwords = {'a':'123','alice':'4lice1597','bob':'b0b$2007','boris':'boriS@123789XYZ','admin':'p4sSW0rd!!!'}
+	a = DiffieHellman()
+	for user in passwords.keys():
+		m = a.genPublicModuli(hash32(passwords[user]))
+		print user+","+str(m)
 
-	#a.showParams()
-	#a.showResults()
-	#b.showParams()
-	#b.showResults()
-
-#	if(a.getKey() == b.getKey()):
-#		print("Shared keys match.")
-#	print("Key:", hexlify(a.key))
-#	else:
-#		print("Shared secrets didn't match!")
-#		print("Shared secret A: ", a.genSecret(b.publicKey))
-#		print("Shared secret B: ", b.genSecret(a.publicKey))

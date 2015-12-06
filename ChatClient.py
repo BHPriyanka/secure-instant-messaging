@@ -187,7 +187,7 @@ def LoginSequence(username, password):
 
    #compute the nonce, a random no. of 32 bit, W from password 
    nonce = os.urandom(32)
-   W = hash(password)
+   W = hash32(password)
    u = DiffieHellman()
    # modular prime and private key for DH exchange
    p = str(u.prime)

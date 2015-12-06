@@ -21,6 +21,10 @@ user_networkinfo = {}
 user_DHkey = {}
 user_moduli = []
 
+def hash32(value):
+   # use this to calculate W from password string.
+   return hash(value) & 0xffffffff
+
 def main(argv):
    global serverprivkey
 
