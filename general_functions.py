@@ -73,19 +73,28 @@ def AESEncrypt(msg, aes_key, iv):
 
 
 def extractmsg(serverprivkey, dataRecv):
- offset = 1
-# new_iv = dataRecv[offset:offset+16]
-# offset += 16
- iv = dataRecv[offset:offset+16]
- offset += 16
- cipher_key_new = dataRecv[offset:offset+256]
- offset += 256
- nwcipher = dataRecv[offset:len(dataRecv)]
+  # bytes(0x01)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
+  cipher_key_sym = None
+  ciphertext = None
+  iv = None
+
+  offset = 0
+  msg_type = dataRecv[offset]
+  offset += 1
+  iv = dataRecv[offset:offset+16]
+  offset += 16
+  cipher_key_sym = dataRecv[offset:offset+256]
+  offset += 256
+  ciphertext = dataRecv[offset:len(dataRecv)]
+
  # decrypt cipher_key_new with reciever's private key
- new_key_sym = RSADecrypt(cipher_key_new, serverprivkey)
+  new_key_sym = RSADecrypt(cipher_key_new, serverprivkey)
 
  #decrypt the nwciphertext
- plaintext = AESDecrypt(new_key_sym, iv, nwcipher)
- split_data = plaintext.split(',')
- return split_data
+  plaintext = AESDecrypt(new_key_sym, iv, ciphertext)
+  nonce = bytes(plaintext)[0:32]
+  plaintext = str(bytes(plaintext[32:len(bytes(plaintext))]))
+
+  split_data = plaintext.split(',')
+  return split_data
  
