@@ -315,7 +315,6 @@ def LoginSequence(username, password):
 def ListSequence(clientinfo):
    global dh_aes_key
    global serverpubkey
-   global Dport
    global serverIP
    #format of list command {Alice,K{list}} server-public-key
    #encrypt the list command using the DH shared key
@@ -331,8 +330,10 @@ def ListSequence(clientinfo):
    cipher_sym_key = RSAEncrypt(sym_key, serverpubkey)
    send_list_msg = bytes(0x01) + bytes(iv) + bytes(cipher_sym_key) + bytes(encrypted_list)
    print('Sending list command')
-   server_socket.sendto(send_list_msg, (serverIP, int(Dport)))
-  
+   server_socket.sendto(send_list_msg, (serverIP, int(serverPort)))
+   (Dport, addr) = server_socket.recvfrom(4096)
+   print Dport
+
    #receive list of users active on the server 
    (dataRecv, addr) = server_socket.recvfrom(4096)
    offset = 0
@@ -342,8 +343,6 @@ def ListSequence(clientinfo):
    #decrypt ciphernew
    text = AESDecrypt(dh_aes_key, iv1, ciphernew)
    print str(bytes(text))
-
-   pass
 
 def LogoutSequence(clientInfo):
    global dh_aes_key

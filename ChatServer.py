@@ -97,13 +97,12 @@ def task(dynamic_socket, addr, dataRecv):
          cmd_type = AESDecrypt(dhkey, iv, cmd_cipher)
 
          print('--------'+cmd_type+'--------')
-         exit()
          if cmd_type == 'list':
-            ListSequence(user)
+            ListSequence(dynamic_socket, user)
          elif cmd_type == 'send':
-            FetchSequence(user, cmd)
+            FetchSequence(dynamic_socket, user, cmd)
          elif cmd_type == 'exit':
-            LogoutSequence(user, cmd)
+            LogoutSequence(dynamic_socket, user, cmd)
    except:
       print 'task error!'
       raise
@@ -227,7 +226,7 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
 
    pass
 
-def ListSequence(clientinfo):
+def ListSequence(dynamic_socket, username):
    global serverprivkey
    global user_DHkey
    global user_networkinfo
@@ -244,11 +243,8 @@ def ListSequence(clientinfo):
    msg = bytes(iv) + bytes(enc_list_users)
    #print hexlify(dhkey)
    dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
-   print('Send list of users')
-   pass
+   print('Sent list of users')
 
-#def SendSequence(clientInfo):
-#   pass
 
 def LogoutSequence(clientInfo):
    pass
