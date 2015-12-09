@@ -95,14 +95,14 @@ def task(dynamic_socket, addr, dataRecv):
             print('Client does not exist')
 
          cmd_type = AESDecrypt(dhkey, iv, cmd_cipher)
-
-         print('--------'+cmd_type+'--------')
-         if cmd_type == 'list':
-            ListSequence(dynamic_socket, user)
-         elif cmd_type == 'send':
-            FetchSequence(dynamic_socket, user, cmd)
-         elif cmd_type == 'exit':
-            LogoutSequence(dynamic_socket, user, cmd)
+ 	 cmd = str(bytes(cmd_type))
+         
+         if cmd == 'list':
+            ListSequence(dynamic_socket, addr, username)
+         elif cmd == 'send':
+            FetchSequence(dynamic_socket, username, cmd)
+         elif cmd == 'exit':
+            LogoutSequence(dynamic_socket, username, cmd)
    except:
       print 'task error!'
       raise
@@ -226,11 +226,11 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
 
    pass
 
-def ListSequence(dynamic_socket, username):
+def ListSequence(dynamic_socket, addr, username):
    global serverprivkey
    global user_DHkey
    global user_networkinfo
-  
+   
    try:
       dhkey = user_DHkey[username]
    except:

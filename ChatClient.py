@@ -332,7 +332,6 @@ def ListSequence(clientinfo):
    print('Sending list command')
    server_socket.sendto(send_list_msg, (serverIP, int(serverPort)))
    (Dport, addr) = server_socket.recvfrom(4096)
-   print Dport
 
    #receive list of users active on the server 
    (dataRecv, addr) = server_socket.recvfrom(4096)

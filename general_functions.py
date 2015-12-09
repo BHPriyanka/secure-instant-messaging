@@ -88,13 +88,13 @@ def extractmsg(serverprivkey, dataRecv):
   ciphertext = dataRecv[offset:len(dataRecv)]
 
  # decrypt cipher_key_new with reciever's private key
-  new_key_sym = RSADecrypt(cipher_key_new, serverprivkey)
+  new_key_sym = RSADecrypt(cipher_key_sym, serverprivkey)
 
  #decrypt the nwciphertext
   plaintext = AESDecrypt(new_key_sym, iv, ciphertext)
   nonce = bytes(plaintext)[0:32]
-  plaintext = str(bytes(plaintext[32:len(bytes(plaintext))]))
-  username = plaintext.split(',')[0]
-  cmd_cipher = bytes(plaintext[32+len(username+1):len(bytes(plaintext))])
+  s = str(plaintext[32:len(bytes(plaintext))])
+  username = s.split(',')[0]
+  cmd_cipher = plaintext[32+len(username)+1:len(bytes(plaintext))]
   return (iv, nonce, username, cmd_cipher)
  
