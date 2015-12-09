@@ -78,6 +78,7 @@ def createDynamicPort():
 
 def task(dynamic_socket, addr, dataRecv):
    global serverprivkey
+   global user_DHkey
 
    # parse dataRecv: type|iv|key_sym|ciphertext
    msg_type = dataRecv[0]
@@ -87,14 +88,16 @@ def task(dynamic_socket, addr, dataRecv):
          print('LOGIN DONE')
       elif msg_type == bytes(0x01):
          print('msg is 0x01')
-         #msg = RSAdecrypt(dataRecv)
-         #(user, cipherCmd) = msg.split(',')
-         #cmd = DHdecrypt(cipherCmd)
-         #cmd_type = cmd.split(' ')[0]
-         #split_data = extractmsg(serverprivkey, dataRecv)
-	 #user
-         cmd_type = str(split_data[1])
-         print('----------------')
+         (iv, nonce, username, cmd_cipher) = extractmsg(serverprivkey, dataRecv)
+         try:
+            dhkey = user_DHkey[username]
+         except:
+            print('Client does not exist')
+
+         cmd_type = AESDecrypt(dhkey, iv, cmd_cipher)
+
+         print('--------'+cmd_type+'--------')
+         exit()
          if cmd_type == 'list':
             ListSequence(user)
          elif cmd_type == 'send':

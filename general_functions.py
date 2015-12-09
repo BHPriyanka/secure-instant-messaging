@@ -94,7 +94,7 @@ def extractmsg(serverprivkey, dataRecv):
   plaintext = AESDecrypt(new_key_sym, iv, ciphertext)
   nonce = bytes(plaintext)[0:32]
   plaintext = str(bytes(plaintext[32:len(bytes(plaintext))]))
-
-  split_data = plaintext.split(',')
-  return split_data
+  username = plaintext.split(',')[0]
+  cmd_cipher = bytes(plaintext[32+len(username+1):len(bytes(plaintext))])
+  return (iv, nonce, username, cmd_cipher)
  
