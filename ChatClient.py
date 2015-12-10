@@ -118,9 +118,6 @@ def listenTask(client_socket):
          (dataRecv, addr) = client_socket.recvfrom(4096)
          print "received message length:", len(dataRecv)
          print "received addr:", addr
-         tmp = {}
-         tmp['msg'] = dataRecv
-         print tmp
          (dynamic_socket, dynamic_port) = createDynamicPort()
          client_socket.sendto(str(dynamic_port), (addr[0], addr[1]))
          thread.start_new_thread(MsgRecvSequence,(dynamic_socket, addr, dataRecv))
@@ -147,10 +144,6 @@ def AuthSequenceA(peerInfo):
    print "len(greeting_msg) = "+str(len(greeting_msg))
    print "peer_ip = "+peer_ip
    print "peer_port = "+peer_port
-
-   tmp = {}
-   tmp['msg'] = greeting_msg
-   print tmp
 
    dynamic_socket.sendto(greeting_msg,(peer_ip,int(peer_port)))
    # waitng to receive portInfo
