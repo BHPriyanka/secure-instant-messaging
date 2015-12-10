@@ -89,21 +89,18 @@ def main(argv):
       inputStr = raw_input()
       cmdComponents = re.split('\s+', inputStr)
       if cmdComponents[0] == 'list':
-         print 'list sequence'
-         ListSequence(username)
+      print 'list sequence'
+      ListSequence(username)
       elif cmdComponents[0] == 'send':
          if len(cmdComponents)<3:
             print 'send <user> <message>'
             continue
          user = cmdComponents[1]
          msg = ' '.join(cmdComponents[2:len(cmdComponents)])
-         print 'send sequence'
-         print 'msg:' + msg
          MsgSendSequence(user, msg)
-      elif cmdComponents[0] == 'exit':
-         print 'logout sequence'
+      elif cmdComponents[0] == 'logout':
          LogoutSequence(username)
-         exit(0)
+         
 
 def createDynamicPort():
    Dsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
@@ -469,7 +466,6 @@ def LoginSequence(username, password):
 	print('hash does not match' )
         sys.exit(2)
 
-   print('Sending hash for verification')
    (dataRecv, addr) = server_socket.recvfrom(4096)
    offset = 0
    iv = dataRecv[offset:offset+16]
@@ -480,8 +476,7 @@ def LoginSequence(username, password):
    #decrypt the ciphertext using the key_sym and iv
    plaintext = AESDecrypt(dh_aes_key, iv, ciphertext)
    msg = str(bytes(plaintext))
-   print(hexlify(dh_aes_key))
-   print('Recevied ACK')
+   print('Received ACK')
 
    networkinfo = client_socket.getsockname()[0] + ',' + str(client_socket.getsockname()[1])
 
@@ -532,12 +527,12 @@ def ListSequence(clientinfo):
    ciphernew = dataRecv[offset:len(dataRecv)]
    #decrypt ciphernew
    text = AESDecrypt(dh_aes_key, iv1, ciphernew)
+   print('List of Users currently active:')
    print str(bytes(text))
 
 def LogoutSequence(clientInfo):
    global dh_aes_key
    global serverpubkey
-   global Dport
    global serverIP
 
    #message format for logout {username,K{logout},N1}serverpublickey
@@ -547,19 +542,44 @@ def LogoutSequence(clientInfo):
 
    #compute the nonce
    N1 = os.urandom(32)
-   #print('N1: ', N1)
-   exitinfo = bytes(N1) + bytes(username + ',' + logoutinfo)
+   exitinfo = bytes(N1) + bytes(clientInfo + ',' + logoutinfo)
 
    #encrypt using aes key
-   key_sym=keygen()
-   #iv = os.urandom(16)
-   ciphertext = AESEncrypt(exitinfo, key_sym, iv)
+   sym_key=keygen()
+   ciphertext = AESEncrypt(exitinfo, sym_key, iv)
 
    #encrypt the symmetric key with rsa public key
-   cipher_key_sym = serverpubkey.encrypt(key_sym, padding.OAEP( mgf=padding.MGF1(algorithm=hashes.SHA1()),algorithm=hashes.SHA1(),label=None))
+   cipher_sym_key = RSAEncrypt(sym_key, serverpubkey)
 
-   exit_msg = bytes(0x01) + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
+   exit_msg = bytes(0x01) + bytes(iv) + bytes(cipher_sym_key) + bytes(ciphertext)
    server_socket.sendto(exit_msg, (serverIP, int(serverPort))) 
+   (Dport, addr) = server_socket.recvfrom(4096)
+   (dataRecv, addr) = server_socket.recvfrom(4096)
+   offset = 0
+   newiv = dataRecv[offset:offset+16]
+   offset += 16
+   cipher = dataRecv[offset:len(dataRecv)]
+   
+   text = AESDecrypt(dh_aes_key, newiv, cipher)
+   NONCE1 = text[0:32]
+   NONCE2 = text[32:len(text)]
+   try:
+     if NONCE1 == N1:
+        iv1 = os.urandom(16)
+	challenge_response = bytes(NONCE2) + bytes(clientInfo)
+        #encrypt using aes key
+	sym_key1=keygen()
+        ciphertext1 = AESEncrypt(challenge_response, sym_key1, iv1)
+  
+        #encrypt the symmetric key with rsa public key
+        cipher_sym_key1 = RSAEncrypt(sym_key1, serverpubkey)
+	exitmsg = bytes(iv1) + bytes(cipher_sym_key1) + bytes(ciphertext1)
+	server_socket.sendto(exitmsg, (serverIP, int(Dport)))
+   except:
+       print('Failed authentication')
+       raise
+   finally:
+       exit(0)
    pass
 
 if __name__ == "__main__":
