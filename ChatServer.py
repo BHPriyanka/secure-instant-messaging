@@ -85,9 +85,12 @@ def task(dynamic_socket, addr, dataRecv):
    try:
       if msg_type == bytes(0x00):
          LoginSequence(dynamic_socket, addr, dataRecv)
-         print('LOGIN DONE')
+         print('LOGIN SUCCESSFUL')
+         print('List Of Services provided the Server')
+         print('1. LIST')
+         print('2.SEND')
+         print('3.LOGOUT')
       elif msg_type == bytes(0x01):
-         print('msg is 0x01')
          (iv, nonce, username, cmd_cipher) = extractmsg(serverprivkey, dataRecv)
          try:
             dhkey = user_DHkey[username]
@@ -96,13 +99,12 @@ def task(dynamic_socket, addr, dataRecv):
 
          cmd_type = AESDecrypt(dhkey, iv, cmd_cipher)
  	 cmd = str(bytes(cmd_type))
-         
          if cmd == 'list':
             ListSequence(dynamic_socket, addr, username)
          elif cmd == 'send':
             FetchSequence(dynamic_socket, username, cmd)
-         elif cmd == 'exit':
-            LogoutSequence(dynamic_socket, username, cmd)
+         elif cmd == 'logout':
+            LogoutSequence(dynamic_socket, addr, username, nonce)
    except:
       print 'task error!'
       raise
@@ -243,11 +245,58 @@ def ListSequence(dynamic_socket, addr, username):
    msg = bytes(iv) + bytes(enc_list_users)
    #print hexlify(dhkey)
    dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
-   print('Sent list of users')
 
 
-def LogoutSequence(clientInfo):
-   pass
+def LogoutSequence(dynamic_socket, addr, username, nonce):
+  global serverprivkey
+  global user_DHkey
+  global user_networkinfo
+  #print('user_DHkey')
+  #print('-----------------------------------')
+  #print(user_DHkey)
+  #print('user_networkinfo')
+  #print('------------------------------------')
+  #print(user_networkinfo)
+  try:
+      dhkey = user_DHkey[username]
+  except:
+      print('Client does not exist')
+  #compute the nonce
+  N2 = os.urandom(32)
+  #K{N1,N2}
+  #encrypt the logout command using the DH shared key
+  iv = os.urandom(16)
+  send_nonce = bytes(nonce) + bytes(N2) 
+  logoutinfo = AESEncrypt(send_nonce, dhkey, iv)
+  nonce_msg = bytes(iv) + bytes(logoutinfo)
+  
+  dynamic_socket.sendto(nonce_msg, (addr[0], int(addr[1])))
+  (dataRecv, addr) = dynamic_socket.recvfrom(4096)
+  offset = 0
+  newiv = dataRecv[offset:offset+16]
+  offset += 16
+  cipher_sym_key1 = dataRecv[offset:offset+256]
+  offset += 256
+  ciphertext1 = dataRecv[offset:len(dataRecv)]
+
+  # decrypt key_sym with reciever's private key
+  key_sym = RSADecrypt(cipher_sym_key1, serverprivkey)
+
+  #decrypt the ciphertext 
+  plaintext = AESDecrypt(key_sym, newiv , ciphertext1)
+  nonce = plaintext[0:32]
+  username = str(bytes(plaintext[32:len(bytes(plaintext))]))
+  print('Deleting User',username,'from the database')
+  try:
+    del user_DHkey[username]
+    del user_networkinfo[username]
+  except:
+    print('User is not present in the existing database')
+  #print(user_DHkey)
+  print('----------------------------------------------------')
+  #print(user_networkinfo)
+  #print('--------------------------------------------------')
+  pass
 
 
 if __name__ == "__main__":
