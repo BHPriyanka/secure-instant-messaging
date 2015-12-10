@@ -106,8 +106,8 @@ def task(dynamic_socket, addr, dataRecv):
          elif cmd == 'send':
             peername = str(bytes(cmd_info)).split(' ')[1]
             FetchSequence(dynamic_socket, addr, username, peername)
-         elif cmd == 'exit':
-            LogoutSequence(dynamic_socket, username, cmd)
+         elif cmd == 'logout':
+            LogoutSequence(dynamic_socket, addr, username, nonce)
    except:
       print "task error:", sys.exc_info()[0]
       raise
@@ -288,16 +288,14 @@ def LogoutSequence(dynamic_socket, addr, username, nonce):
   global serverprivkey
   global user_DHkey
   global user_networkinfo
+  print 'LogoutSequence'
   #print('user_DHkey')
   #print('-----------------------------------')
   #print(user_DHkey)
   #print('user_networkinfo')
   #print('------------------------------------')
   #print(user_networkinfo)
-  try:
-      dhkey = user_DHkey[username]
-  except:
-      print('Client does not exist')
+  dhkey = user_DHkey[username]
   #compute the nonce
   N2 = os.urandom(32)
   #K{N1,N2}
@@ -307,6 +305,7 @@ def LogoutSequence(dynamic_socket, addr, username, nonce):
   logoutinfo = AESEncrypt(send_nonce, dhkey, iv)
   nonce_msg = bytes(iv) + bytes(logoutinfo)
   
+  print 'sending out nonces...'
   dynamic_socket.sendto(nonce_msg, (addr[0], int(addr[1])))
   (dataRecv, addr) = dynamic_socket.recvfrom(4096)
   offset = 0

@@ -564,7 +564,7 @@ def LogoutSequence(clientInfo):
    NONCE1 = text[0:32]
    NONCE2 = text[32:len(text)]
    try:
-     if NONCE1 == N1:
+      if NONCE1 == N1:
          iv1 = os.urandom(16)
          challenge_response = bytes(NONCE2) + bytes(clientInfo)
          #encrypt using aes key
