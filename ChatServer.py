@@ -45,9 +45,9 @@ def main(argv):
          commonPort = arg
    try:
       server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
-      server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+      # server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
       server_socket.bind((socket.gethostname(), int(commonPort)))
-      print 'Server Initialized at '+socket.gethostname()+':'+commonPort
+      print 'Server Initialized at '+server_socket.getsockname()[0]+':'+commonPort
    except:
       print 'error when init socket, exit...'
       sys.exit(2)
@@ -63,17 +63,22 @@ def main(argv):
          thread.start_new_thread(task,(dynamic_socket, addr, dataRecv))
       except socket.error:
          print 'socket error!'
-         raise
          sys.exit(2)
+      except exceptions.KeyboardInterrupt:
+         sys.exit(2)
+      except exceptions.KeyError:
+         print 'user does not exist'
+         continue
       except:
-         print 'error'
          raise
          continue
 
 def createDynamicPort():
    Dsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
-   Dsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+   # Dsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
    Dsocket.bind((socket.gethostname(), 0))
+   # Every dynamic port will timeout in 5 seconds
+   Dsocket.settimeout(20)
    return (Dsocket, Dsocket.getsockname()[1])
 
 def task(dynamic_socket, addr, dataRecv):
@@ -89,23 +94,20 @@ def task(dynamic_socket, addr, dataRecv):
       elif msg_type == bytes(0x01):
          print('msg is 0x01')
          (iv, nonce, username, cmd_cipher) = extractmsg(serverprivkey, dataRecv)
-         try:
-            dhkey = user_DHkey[username]
-         except:
-            print('Client does not exist')
-
-         cmd_type = AESDecrypt(dhkey, iv, cmd_cipher)
- 	 cmd = str(bytes(cmd_type))
+         dhkey = user_DHkey[username]
+         cmd_info = AESDecrypt(dhkey, iv, cmd_cipher)
+         cmd = str(bytes(cmd_info)).split(' ')[0]
          
          if cmd == 'list':
             ListSequence(dynamic_socket, addr, username)
          elif cmd == 'send':
-            FetchSequence(dynamic_socket, username, cmd)
+            peername = str(bytes(cmd_info)).split(' ')[1]
+            FetchSequence(dynamic_socket, addr, username, peername)
          elif cmd == 'exit':
             LogoutSequence(dynamic_socket, username, cmd)
    except:
-      print 'task error!'
-      raise
+      traceback.print_exc()
+      print "task error:", sys.exc_info()[0]
    finally:
       dynamic_socket.close()
 
@@ -113,6 +115,8 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    global user_DHkey
    global user_networkinfo
    global serverprivkey
+
+   print 'LoginSequence'
  
    # msg format greeting_msg = bytes(0x00)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
    cipher_key_sym = None
@@ -169,6 +173,8 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
 
    #constant for GREETING is 0x00
    server_first_msg = bytes(0x00)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
+
+   print 'reply first msg to client'
    dynamic_socket.sendto(server_first_msg, (addr[0], int(addr[1])))
 
    (dataRecv, addr) = dynamic_socket.recvfrom(4096)
@@ -176,8 +182,10 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
   
    try:
       if dataRecv == u.hashsecret:
-	 #generate shared key
          u.genKey(client_dh_pub_key)
+      else:
+         print('hashes does not match')
+         sys.exit(2)
    except:
      print('hashes does not match')
      sys.exit(2)
@@ -217,7 +225,7 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    #register those into eph-table
    user_networkinfo.setdefault(username, []).append(ip_address)
    user_networkinfo.setdefault(username, []).append(port_num)
-   user_networkinfo.setdefault(username, []).append(client_rsa_auth_key)
+   user_networkinfo.setdefault(username, []).append(client_rsa_pub_key)
    
    user_DHkey[username] = sym_key_shared
    print('Registered the client')
@@ -231,6 +239,7 @@ def ListSequence(dynamic_socket, addr, username):
    global user_DHkey
    global user_networkinfo
    
+   dhkey = None
    try:
       dhkey = user_DHkey[username]
    except:
@@ -245,6 +254,33 @@ def ListSequence(dynamic_socket, addr, username):
    dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
    print('Sent list of users')
 
+def FetchSequence(dynamic_socket, addr, username, peername):
+   global serverprivkey
+   global user_DHkey
+   global user_networkinfo
+
+   peer_ip = ""
+   peer_port = ""
+   peer_key = ""
+   
+   dhkey = None
+   try:
+      dhkey = user_DHkey[username]  
+   except:
+      print('Client does not exist')
+      return
+  
+   #use this shared key to encrypt the list of users
+   peer_info = user_networkinfo[peername]
+   peer_ip = peer_info[0]
+   peer_port = peer_info[1]
+   peer_key = peer_info[2]
+   iv = os.urandom(16)
+   enc_peer_info = AESEncrypt(peer_ip+","+peer_port+","+peer_key, dhkey, iv)
+   msg = bytes(iv) + bytes(enc_peer_info)
+   #print hexlify(dhkey)
+   dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
+   print('Sent peer info')
 
 def LogoutSequence(clientInfo):
    pass
