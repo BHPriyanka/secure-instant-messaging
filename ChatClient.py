@@ -89,8 +89,8 @@ def main(argv):
       inputStr = raw_input()
       cmdComponents = re.split('\s+', inputStr)
       if cmdComponents[0] == 'list':
-      print 'list sequence'
-      ListSequence(username)
+         print 'list sequence'
+         ListSequence(username)
       elif cmdComponents[0] == 'send':
          if len(cmdComponents)<3:
             print 'send <user> <message>'
@@ -458,13 +458,13 @@ def LoginSequence(username, password):
    u.genHashSecret1(dh_key_server_public)
   
    try:
-	if hash_secret == u.hashsecret1:
-	  #generate DH shared key
-	  u.genKey(dh_key_server_public)
-	  server_socket.sendto(u.hashsecret1, (serverIP, int(Dport)))
+      if hash_secret == u.hashsecret1:
+         #generate DH shared key
+         u.genKey(dh_key_server_public)
+         server_socket.sendto(u.hashsecret1, (serverIP, int(Dport)))
    except:
-	print('hash does not match' )
-        sys.exit(2)
+      print('hash does not match' )
+      sys.exit(2)
 
    (dataRecv, addr) = server_socket.recvfrom(4096)
    offset = 0
@@ -565,16 +565,16 @@ def LogoutSequence(clientInfo):
    NONCE2 = text[32:len(text)]
    try:
      if NONCE1 == N1:
-        iv1 = os.urandom(16)
-	challenge_response = bytes(NONCE2) + bytes(clientInfo)
-        #encrypt using aes key
-	sym_key1=keygen()
-        ciphertext1 = AESEncrypt(challenge_response, sym_key1, iv1)
+         iv1 = os.urandom(16)
+         challenge_response = bytes(NONCE2) + bytes(clientInfo)
+         #encrypt using aes key
+         sym_key1=keygen()
+         ciphertext1 = AESEncrypt(challenge_response, sym_key1, iv1)
   
-        #encrypt the symmetric key with rsa public key
-        cipher_sym_key1 = RSAEncrypt(sym_key1, serverpubkey)
-	exitmsg = bytes(iv1) + bytes(cipher_sym_key1) + bytes(ciphertext1)
-	server_socket.sendto(exitmsg, (serverIP, int(Dport)))
+         #encrypt the symmetric key with rsa public key
+         cipher_sym_key1 = RSAEncrypt(sym_key1, serverpubkey)
+         exitmsg = bytes(iv1) + bytes(cipher_sym_key1) + bytes(ciphertext1)
+         server_socket.sendto(exitmsg, (serverIP, int(Dport)))
    except:
        print('Failed authentication')
        raise

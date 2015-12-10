@@ -109,8 +109,8 @@ def task(dynamic_socket, addr, dataRecv):
          elif cmd == 'exit':
             LogoutSequence(dynamic_socket, username, cmd)
    except:
-      traceback.print_exc()
       print "task error:", sys.exc_info()[0]
+      raise
    finally:
       dynamic_socket.close()
 
