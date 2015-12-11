@@ -101,11 +101,6 @@ def task(dynamic_socket, addr, dataRecv):
    try:
       if msg_type == bytes(0x00):
          LoginSequence(dynamic_socket, addr, dataRecv)
-         print('LOGIN SUCCESSFUL')
-         # print('List Of Services provided the Server')
-         # print('1. LIST')
-         # print('2.SEND')
-         # print('3.LOGOUT')
       elif msg_type == bytes(0x01):
          (iv, nonce, username, cmd_cipher) = extractmsg(serverprivkey, dataRecv)
          dhkey = user_DHkey[username]
@@ -119,6 +114,8 @@ def task(dynamic_socket, addr, dataRecv):
             FetchSequence(dynamic_socket, addr, username, peername)
          elif cmd == 'logout':
             LogoutSequence(dynamic_socket, addr, username, nonce)
+   except socket.timeout:
+      print 'client socket timeout, ignore the request...'
    except:
       print "task error:", sys.exc_info()[0]
       raise
@@ -186,7 +183,8 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    p = str(u.prime)
    moduli = user_moduli[username]
    u.genHashSecretM(moduli ,client_dh_pub_key)
-   msg = nonce + dh_key_server + ',' + u.hashsecret
+   nonce2 = os.urandom(32)
+   msg = nonce + nonce2 + u.hashsecret + dh_key_server
 
    #generate a aes key , iv and use it to encrypt the above msg
    aes_key = keygen()
@@ -204,17 +202,18 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
 
    (dataRecv, addr) = dynamic_socket.recvfrom(4096)
    print('Verifying the hashes computed and received')
+   _nonce2 = dataRecv[0:32]
+   if _nonce2!=str(nonce2):
+    print "Nonce N2 doesn't match"
+    return
   
    u.genHashSecretM1(moduli ,client_dh_pub_key)
-   try:
-      if dataRecv == u.hashsecret1:
-         u.genKey(client_dh_pub_key)
-      else:
-         print('hashes does not match')
-         sys.exit(2)
-   except:
-     print('hashes does not match')
-     sys.exit(2)
+   hash_recv = dataRecv[32:len(dataRecv)]
+   if hash_recv == u.hashsecret1:
+      u.genKey(client_dh_pub_key)
+   else:
+      print('hashes does not match')
+      return
    
    print('Sending ACK')
    sym_key_shared = aeskeygen(u.key)
@@ -257,6 +256,7 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    print('Registered the client')
   
    #-------------------------------------------------
+   print('LOGIN SUCCESSFUL')
 
    pass
 
@@ -272,7 +272,11 @@ def ListSequence(dynamic_socket, addr, username):
       print('Client does not exist')
   
    #use this shared key to encrypt the list of users
-   list_users = user_networkinfo.keys()
+   all_users = user_networkinfo.keys()
+   list_users = []
+   for user in all_users:
+    if user_networkinfo[user] != []:
+      list_users.append(user)
    iv = os.urandom(16)
    enc_list_users = AESEncrypt(str(list_users)[1:-1], dhkey, iv)
    msg = bytes(iv) + bytes(enc_list_users)

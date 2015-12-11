@@ -224,9 +224,8 @@ def AuthSequenceB(dynamic_socket, peerAdd, init_msg):
    peerInfo = AESDecrypt(dh_aes_key, iv1, ciphernew)
    print "peerInfo = "+peerInfo
    peerAdd_s = peerInfo.split(',')[0]
-   peerIp_s = peerInfo.split(',')[1]
-   if peerAdd_s!=peerAdd[0] or peerIp_s!=str(peerAdd[1]):
-      print "peer doesn't match!"
+   if peerAdd_s!=peerAdd[0]:
+      print "peer doesn't match... maybe impersonated..."
       return
    peerRSAKey = peerInfo.split(',')[2]
    peerRSAKey =  serialization.load_pem_public_key(peerRSAKey, backend=default_backend())
@@ -271,7 +270,7 @@ def AuthSequenceB(dynamic_socket, peerAdd, init_msg):
       return None
    pem_cipher = encryptSendMsg(peerRSAKey, sender_private_key, pem)
    dynamic_socket.sendto(pem_cipher, (peerAdd[0], int(peerAdd[1])))
-   return (pem_s, peerRSACommKey)
+   return (peername, pem_s, peerRSACommKey)
 
 def MsgSendSequence(peername, msg):
    # fetch user info from server
@@ -333,7 +332,7 @@ def MsgRecvSequence(dynamic_socket, peerAdd, dataRecv):
    comm_private_key = None
    comm_public_key = None
    try:
-      (comm_private_key, comm_public_key) = AuthSequenceB(dynamic_socket, peerAdd, dataRecv)
+      (peername, comm_private_key, comm_public_key) = AuthSequenceB(dynamic_socket, peerAdd, dataRecv)
       # decrypt msg and output it on console
       if comm_private_key == None or comm_public_key == None:
          print "MsgRecvSequence Error"
@@ -351,7 +350,7 @@ def MsgRecvSequence(dynamic_socket, peerAdd, dataRecv):
       )
 
       msg = decryptSendMsg(dataRecv, comm_private_key, comm_public_key)
-      print "Message Recieved : "
+      print "Message Recieved From "+peername+" : "
       print msg
    except socket.timeout:
       print "socket timeout"
@@ -441,14 +440,22 @@ def LoginSequence(username, password):
 
    # decrypt the ciphertext using the key_sym and iv
    plaintext = AESDecrypt(key_sym, iv, ciphertext)
-   nonce = bytes(plaintext)[0:32]
-   plaintext = str(bytes(plaintext[32:len(bytes(plaintext))]))
+   plaintext = bytes(plaintext)
+   offset = 0
+   nonce1 = plaintext[offset:offset+32]
+   offset += 32
+   nonce2 = plaintext[offset:offset+32]
+   offset += 32
+
+   if nonce1 != nonce:
+      print "nonce N1 doesn't match"
+      exit(2)
 
    #get data from plaintext
-   split_data = plaintext.split(',')
-   dh_key_server_public = split_data[0]
-   hash_secret = split_data[1]
-
+   hash_secret = plaintext[offset:offset+32]
+   offset += 32
+   dh_key_server_public = plaintext[offset:len(plaintext)]
+   
    #generate hash secret
 
    W = hash32(password)
@@ -458,7 +465,7 @@ def LoginSequence(username, password):
       #generate DH shared key
       u.genKey(dh_key_server_public)
       u.genHashSecret1(W, dh_key_server_public)
-      server_socket.sendto(u.hashsecret1, (serverIP, int(Dport)))
+      server_socket.sendto(str(nonce2)+u.hashsecret1, (serverIP, int(Dport)))
    else:
       print('hash does not match' )
       sys.exit(2)
