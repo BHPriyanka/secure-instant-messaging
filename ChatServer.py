@@ -335,7 +335,6 @@ def FetchSequence(dynamic_socket, addr, username, peername):
    enc_peer_info = AESEncrypt(peer_ip+","+peer_port+","+peer_key, dhkey, iv)
    msg = bytes(iv) + bytes(enc_peer_info)
    dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
-   print('Sent peer info')
 
 # Logout Sequence on issue of logout command by the user
 def LogoutSequence(dynamic_socket, addr, username, N1):
