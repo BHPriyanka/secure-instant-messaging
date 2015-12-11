@@ -2,7 +2,6 @@ import sys, getopt, os
 import socket, re
 import thread
 import time
-import base64
 import hashlib, ctypes
 from binascii import hexlify
 from cryptography.hazmat.backends import default_backend
@@ -14,43 +13,64 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes, hmac
 from DHExample import DiffieHellman
-from general_functions import aeskeygen, keygen, RSADecrypt, RSAEncrypt, AESDecrypt, AESEncrypt, extractmsg
+from utilities import aeskeygen, keygen, RSADecrypt, RSAEncrypt, AESDecrypt, AESEncrypt, extractmsg
 
+# dictionary to store the Username,IP address, Port number and the RSA auth key of the users
 user_networkinfo = {}
+
+# dictionary to store the Username and the Diffie Hellman Shared key of the users
 user_DHkey = {}
+
+# dictionary to tore the Username and then moduli 2^W mod p of the users
 user_moduli = {}
 
+# Variables for Constants used
+InitOffset = 0
+LengthType = 1
+LengthIV = 16
+LengthN = 32
+LengthKey = 256
+
+# Funtion to compute the positive hash value of the password
 def hash32(value):
    # use this to calculate W from password string.
    return hash(value) & 0xffffffff
 
+
 def main(argv):
+    # Private key and the user_moduli table are define to be global variables
     global serverprivkey
     global user_moduli
-    commonPort = ''
+    commonPort = ''      # common port to which all the client connect to
+   
+    # Usage of the ChatServer program
     if len(argv) != 2:
       print 'ChatServer.py -p <commonPort>'
       sys.exit(2)
+
     try:
       opts, args = getopt.getopt(argv,"hp:")
     except getopt.GetoptError:
       print 'ChatServer.py -p <commonPort>'
       sys.exit(2)
+
     for opt, arg in opts:
-      if opt == '-h':
-         print 'ChatServer.py -p <commonPort>'
-         sys.exit()
-      elif opt =="-p":
+      if opt == "-p":
          commonPort = arg
+      else:
+	print 'ChatServer.py -p <commonPort>'
+	sys.exit()
+    
+    # Create and bind to the socket
     try:
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
-        # server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind((socket.gethostname(), int(commonPort)))
+        server_socket.bind((socket.gethostname(), int(commonPort)))       
         print 'Server Initialized at '+server_socket.getsockname()[0]+':'+commonPort
     except:
-        print 'error when init socket, exit...'
+        print 'Error during init socket, exit...'
         sys.exit(2)
-    # Loading user table
+
+    # Loading user table and initialising all tables
     try:
       with open('username_mod.txt', 'r') as f:
           for line in f:
@@ -62,66 +82,69 @@ def main(argv):
       print("Loading user table failed!")
       sys.exit(2)
 
+    # Listen from all clients bound to the server
     while True:
       try:
          dataRecv, addr = server_socket.recvfrom(4096)
-         # print "received message length:", len(dataRecv)
-         # print "received addr:", addr
-         (dynamic_socket, dynamic_port) = createDynamicPort()
-         # print "Dport = ",dynamic_port
-         server_socket.sendto(str(dynamic_port), (addr[0], int(addr[1])))
-         # print "Dport sent to client"
-         thread.start_new_thread(task,(dynamic_socket, addr, dataRecv))
+         (dynamic_socket, dynamic_port) = createDynamicPort()                # Create Dynamic port for each client
+         server_socket.sendto(str(dynamic_port), (addr[0], int(addr[1])))    # Sends the new port info to the client
+         thread.start_new_thread(task,(dynamic_socket, addr, dataRecv))      
       except socket.error:
-         print 'socket error!'
+         print 'Socket error!'
          sys.exit(2)
       except exceptions.KeyboardInterrupt:
          sys.exit(2)
       except exceptions.KeyError:
-         print 'user does not exist'
+         print 'User does not exist'
          continue
       except:
          raise
          continue
 
+# Generate a dynamic port
 def createDynamicPort():
    Dsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
-   # Dsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
    Dsocket.bind((socket.gethostname(), 0))
-   # Every dynamic port will timeout in 5 seconds
-   Dsocket.settimeout(20)
+   # Every dynamic port will timeout in 120 seconds
+   Dsocket.settimeout(120)
    return (Dsocket, Dsocket.getsockname()[1])
 
+# Main thread of the server
 def task(dynamic_socket, addr, dataRecv):
    global serverprivkey
    global user_DHkey
 
    # parse dataRecv: type|iv|key_sym|ciphertext
-   msg_type = dataRecv[0]
+   # msg_type is considered as the placeholder to differentiate the type of message
+   # 0x00 for the Greeting message
+   # 0x01 for other messages
+   msg_type = dataRecv[0]				       
    try:
       if msg_type == bytes(0x00):
          LoginSequence(dynamic_socket, addr, dataRecv)
       elif msg_type == bytes(0x01):
          (iv, nonce, username, cmd_cipher) = extractmsg(serverprivkey, dataRecv)
-         dhkey = user_DHkey[username]
-         cmd_info = AESDecrypt(dhkey, iv, cmd_cipher)
-         cmd = str(bytes(cmd_info)).split(' ')[0]
+         dhkey = user_DHkey[username]                              # Fetch the DH shared key from the table for the current user
+         cmd_info = AESDecrypt(dhkey, iv, cmd_cipher)	           
+         cmd = str(bytes(cmd_info)).split(' ')[0]		   # Commands-list,send or logout
          
          if cmd == 'list':
-            ListSequence(dynamic_socket, addr, username)
+            ListSequence(dynamic_socket, addr, username)           # Invokes ListSequence method
          elif cmd == 'send':
             peername = str(bytes(cmd_info)).split(' ')[1]
-            FetchSequence(dynamic_socket, addr, username, peername)
+            FetchSequence(dynamic_socket, addr, username, peername)# Invokes FetchSequence method
          elif cmd == 'logout':
-            LogoutSequence(dynamic_socket, addr, username, nonce)
+            LogoutSequence(dynamic_socket, addr, username, nonce)  # Invokes LogoutSequence method
+
    except socket.timeout:
-      print 'client socket timeout, ignore the request...'
+      print 'Client socket timeout, ignore the request...'
    except:
       print "task error:", sys.exc_info()[0]
       raise
    finally:
       dynamic_socket.close()
 
+# LoginSequence 
 def LoginSequence(dynamic_socket, addr, dataRecv):
    global user_DHkey
    global user_networkinfo
@@ -135,15 +158,16 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    iv = None
    moduli = None
 
-   offset = 0
-   msg_type = dataRecv[offset]
-   offset += 1
-   iv = dataRecv[offset:offset+16]
-   offset += 16
-   cipher_key_sym = dataRecv[offset:offset+256]
-   offset += 256
-   ciphertext = dataRecv[offset:len(dataRecv)]
+   offset = InitOffset	                               # Initial offset
+   msg_type = dataRecv[offset] 		               # byte 0 contains the msg_type
+   offset += LengthType
+   iv = dataRecv[offset:offset+16]		       # 16 bytes of IV
+   offset += LengthIV
+   cipher_key_sym = dataRecv[offset:offset+256]	       # 256 bytes of the symmetric key
+   offset += LengthKey
+   ciphertext = dataRecv[offset:len(dataRecv)]	       # The encrypted text
 
+   # Load Private key of the server
    try:
        with open('serverprivkey.pem', 'rb') as f:
             serverprivkey = serialization.load_pem_private_key(f.read(), password=None, backend=default_backend())
@@ -151,115 +175,116 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
        print("The file specified does not exist")
        sys.exit(2)
 
-   # decrypt key_sym with reciever's private key
+   # Decrypt key_sym with reciever's private key
    key_sym = RSADecrypt(cipher_key_sym, serverprivkey)
 
-   #decrypt the ciphertext using the key_sym and iv
+   # Decrypt the ciphertext using the key_sym and iv
    plaintext = AESDecrypt(key_sym, iv , ciphertext)
-   nonce = bytes(plaintext)[0:32]
+   N1 = bytes(plaintext)[0:32]
    plaintext = str(bytes(plaintext[32:len(bytes(plaintext))]))
    
-   #get data from plaintext
+   # Get data from plaintext
    split_data = plaintext.split(',')
    username = split_data[0]
-   # check if already login
+
+   # Check if the user already exists
    try:
     if user_networkinfo[username] != [] or user_DHkey[username] != None:
-      print "user has already logged in!"
+      print "User has already logged in!"
       return
    except:
-    print "user doesn't exist!"
+    print "User doesn't exist!"
     return
 
-   #2^a mod p
+   # DH public key - 2^a mod p and rsa public key of the client
    client_dh_pub_key = split_data[1]
    client_rsa_pub_key = split_data[2]
    client_rsa_auth_key =  serialization.load_pem_public_key(client_rsa_pub_key, backend=default_backend())
 
-   #calculate 2^b mod p
    u = DiffieHellman()
-   b = str(u.privateKey)
-   dh_key_server = str(u.publicKey)
-   p = str(u.prime)
-   moduli = user_moduli[username]
+   b = str(u.privateKey)                             # DH private key of the server
+   dh_key_server = str(u.publicKey)                  # DH public key of the server - 2^b mod p
+   p = str(u.prime)                                  # p - prime number for DH
+   moduli = user_moduli[username]                    # 2^W mod p
    u.genHashSecretM(moduli ,client_dh_pub_key)
-   nonce2 = os.urandom(32)
-   msg = nonce + nonce2 + u.hashsecret + dh_key_server
+   N2 = os.urandom(LengthN)
+   msg = N1 + N2 + u.hashsecret + dh_key_server
 
-   #generate a aes key , iv and use it to encrypt the above msg
+   # Generate a aes key , iv and use it to encrypt the above msg
    aes_key = keygen()
-   iv = os.urandom(16)
+   iv = os.urandom(LengthIV)
    ciphertext = AESEncrypt(msg, aes_key, iv)
 
-   #encrypt the symmetric key with client's rsa public key
+   # Encrypt the symmetric key with client's rsa public key
    cipher_key_sym = RSAEncrypt(aes_key, client_rsa_auth_key)
 
-   #constant for GREETING is 0x00
+   # Constant for GREETING is 0x00
    server_first_msg = bytes(0x00)  + bytes(iv) + bytes(cipher_key_sym) + bytes(ciphertext)
+   print 'Received Greeting from: ',username
 
-   print 'reply first msg to client'
    dynamic_socket.sendto(server_first_msg, (addr[0], int(addr[1])))
 
    (dataRecv, addr) = dynamic_socket.recvfrom(4096)
-   print('Verifying the hashes computed and received')
-   _nonce2 = dataRecv[0:32]
-   if _nonce2!=str(nonce2):
+   print('Verifying the hashes')
+   _N2 = dataRecv[0:LengthN]
+   if _N2!=str(N2):
     print "Nonce N2 doesn't match"
     return
   
    u.genHashSecretM1(moduli ,client_dh_pub_key)
-   hash_recv = dataRecv[32:len(dataRecv)]
+   hash_recv = dataRecv[LengthN:len(dataRecv)]
    if hash_recv == u.hashsecret1:
       u.genKey(client_dh_pub_key)
    else:
-      print('hashes does not match')
+      print('Hashes does not match')
       return
-   
    print('Sending ACK')
-   sym_key_shared = aeskeygen(u.key)
-   iv = os.urandom(16)
-   acknowledge = AESEncrypt('ACK', sym_key_shared, iv)
-   msg = bytes(iv) + bytes(acknowledge)
-   dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
 
-   print('Waiting for networkinfo')
+   sym_key_shared = aeskeygen(u.key)                              # Generate AES key out of DH key
+   iv = os.urandom(LengthIV)
+   acknowledge = AESEncrypt('ACK', sym_key_shared, iv)            # Encrypt the ACK with the symmetric key
+   msg = bytes(iv) + bytes(acknowledge)
+   dynamic_socket.sendto(msg, (addr[0], int(addr[1])))            # Send the ACK to the client
+
+   print('Waiting for Network Information')
    (dataRecv, addr) = dynamic_socket.recvfrom(4096)
-   offset = 0
-   new_iv = dataRecv[offset:offset+16]
-   offset += 16
-   iv = dataRecv[offset:offset+16]
-   offset += 16
-   cipher_key_new = dataRecv[offset:offset+256]
-   offset += 256
+   offset = InitOffset
+   new_iv = dataRecv[offset:offset+LengthIV]
+   offset += LengthIV
+   iv = dataRecv[offset:offset+LengthIV]
+   offset += LengthIV
+   cipher_key_new = dataRecv[offset:offset+LengthKey]
+   offset += LengthKey
    nwciphertext = dataRecv[offset:len(dataRecv)]
-   # decrypt cipher_key_new with reciever's private key
+
+   # Decrypt cipher_key_new with server's private key
    new_key_sym = RSADecrypt(cipher_key_new, serverprivkey)
 
-   #decrypt the nwciphertext 
+   # Decrypt the nwciphertext using symmetric key decryption
    plaintext = AESDecrypt(new_key_sym, new_iv, nwciphertext)
    split_data = plaintext.split(',')
    user = str(bytes(split_data[0]))
-   encnwinfo = split_data[1]
+   enc_nwinfo = split_data[1]
 
-   #decrypt the nwinfo uing DH key
-   plaintext = AESDecrypt(sym_key_shared, iv, encnwinfo)
+   # Decrypt the nwinfo using DH key
+   plaintext = AESDecrypt(sym_key_shared, iv, enc_nwinfo)
    ip_address = plaintext.split(',')[0]
    port_num = plaintext.split(',')[1]
-   print('Received common port and ip')
+   #print('Received common port and ip')
   
-   #register those into eph-table
+   # Register the client's network info along with the client rsa public key into user_networkinfo table
    user_networkinfo[username].append(ip_address)
    user_networkinfo[username].append(port_num)
    user_networkinfo[username].append(client_rsa_pub_key)
    
+   # Register the DH shared key in the user_DHkey table
    user_DHkey[username] = sym_key_shared
-   print('Registered the client')
-  
-   #-------------------------------------------------
-   print('LOGIN SUCCESSFUL')
 
+   print('LOGIN SUCCESSFUL')
+   print('------------------------------------------------------------------')
    pass
 
+# List Command
 def ListSequence(dynamic_socket, addr, username):
    global serverprivkey
    global user_DHkey
@@ -267,22 +292,24 @@ def ListSequence(dynamic_socket, addr, username):
    
    dhkey = None
    try:
-      dhkey = user_DHkey[username]
+      dhkey = user_DHkey[username]                   # Fetch the DH shared key from table for the corresponding client
    except:
       print('Client does not exist')
   
-   #use this shared key to encrypt the list of users
+   # Obtain the list of active users
    all_users = user_networkinfo.keys()
    list_users = []
    for user in all_users:
     if user_networkinfo[user] != []:
       list_users.append(user)
-   iv = os.urandom(16)
+
+   # Use this shared key to encrypt the list of users
+   iv = os.urandom(LengthIV)
    enc_list_users = AESEncrypt(str(list_users)[1:-1], dhkey, iv)
    msg = bytes(iv) + bytes(enc_list_users)
-   #print hexlify(dhkey)
    dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
 
+# FetchSequence for send command
 def FetchSequence(dynamic_socket, addr, username, peername):
    global serverprivkey
    global user_DHkey
@@ -291,7 +318,6 @@ def FetchSequence(dynamic_socket, addr, username, peername):
    peer_ip = ""
    peer_port = ""
    peer_key = ""
-   
    dhkey = None
    try:
       dhkey = user_DHkey[username]  
@@ -299,66 +325,61 @@ def FetchSequence(dynamic_socket, addr, username, peername):
       print('Client does not exist')
       return
   
-   #use this shared key to encrypt the list of users
+   # Use this DH shared key to encrypt the peer info
    peer_info = user_networkinfo[peername]
    peer_ip = peer_info[0]
    peer_port = peer_info[1]
    peer_key = peer_info[2]
-   iv = os.urandom(16)
+
+   iv = os.urandom(LengthIV)
    enc_peer_info = AESEncrypt(peer_ip+","+peer_port+","+peer_key, dhkey, iv)
    msg = bytes(iv) + bytes(enc_peer_info)
-   #print hexlify(dhkey)
    dynamic_socket.sendto(msg, (addr[0], int(addr[1])))
    print('Sent peer info')
 
-def LogoutSequence(dynamic_socket, addr, username, nonce):
+# Logout Sequence on issue of logout command by the user
+def LogoutSequence(dynamic_socket, addr, username, N1):
   global serverprivkey
   global user_DHkey
   global user_networkinfo
   print 'LogoutSequence'
-  #print('user_DHkey')
-  #print('-----------------------------------')
-  #print(user_DHkey)
-  #print('user_networkinfo')
-  #print('------------------------------------')
-  #print(user_networkinfo)
+  
   dhkey = user_DHkey[username]
-  #compute the nonce
-  N2 = os.urandom(32)
-  #K{N1,N2}
-  #encrypt the logout command using the DH shared key
-  iv = os.urandom(16)
-  send_nonce = bytes(nonce) + bytes(N2) 
+
+  # Compute the nonce
+  N2 = os.urandom(LengthN)
+
+  # Message format K{N1,N2}
+  # Encrypt the logout command using the DH shared key
+  iv = os.urandom(LengthIV)
+  send_nonce = bytes(N1) + bytes(N2) 
   logoutinfo = AESEncrypt(send_nonce, dhkey, iv)
   nonce_msg = bytes(iv) + bytes(logoutinfo)
-  
-  print 'sending out nonces...'
   dynamic_socket.sendto(nonce_msg, (addr[0], int(addr[1])))
-  (dataRecv, addr) = dynamic_socket.recvfrom(4096)
-  offset = 0
-  newiv = dataRecv[offset:offset+16]
-  offset += 16
-  cipher_sym_key1 = dataRecv[offset:offset+256]
-  offset += 256
+
+  (dataRecv, addr) = dynamic_socket.recvfrom(4096)             # Receive the consecutive message form client
+  offset = InitOffset
+  newiv = dataRecv[offset:offset+LengthIV]
+  offset += LengthIV
+  cipher_sym_key1 = dataRecv[offset:offset+LengthKey]
+  offset += LengthKey
   ciphertext1 = dataRecv[offset:len(dataRecv)]
 
-  # decrypt key_sym with reciever's private key
+  # Decrypt key_sym with server's private key
   key_sym = RSADecrypt(cipher_sym_key1, serverprivkey)
 
-  #decrypt the ciphertext 
+  # Decrypt the ciphertext 
   plaintext = AESDecrypt(key_sym, newiv , ciphertext1)
-  nonce = plaintext[0:32]
-  username = str(bytes(plaintext[32:len(bytes(plaintext))]))
-  print('Deleting User',username,'from the database')
+  nonce = plaintext[0:32]                                            # Nonce 
+  username = str(bytes(plaintext[32:len(bytes(plaintext))]))         # Username
+
+  print 'Deleting User: ',username
   try:
     user_DHkey[username] = None
     user_networkinfo[username] = []
   except:
     print('User is not present in the existing database')
-  #print(user_DHkey)
   print('----------------------------------------------------')
-  #print(user_networkinfo)
-  #print('--------------------------------------------------')
   pass
 
 

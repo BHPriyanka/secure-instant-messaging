@@ -1,9 +1,6 @@
-import sys, getopt
-import socket
+import sys, getopt, socket
 import thread
-import time
-import re
-import base64, ctypes,os
+import time, re, ctypes,os
 from binascii import hexlify
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF, HKDFExpand
@@ -14,8 +11,8 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes, hmac
 from DHExample import DiffieHellman, hash32
-from general_functions import aeskeygen, keygen, RSADecrypt, RSAEncrypt, AESDecrypt, AESEncrypt
-from general_functions import encryptSendMsg, decryptSendMsg
+from utilities import aeskeygen, keygen, RSADecrypt, RSAEncrypt, AESDecrypt, AESEncrypt
+from utilities import encryptSendMsg, decryptSendMsg
 
 # local
 server_socket = None
@@ -107,7 +104,7 @@ def createDynamicPort():
    # Dsocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
    Dsocket.bind((socket.gethostname(), 0))
    # every socket will timeout in 5 seconds!
-   Dsocket.settimeout(20)
+   Dsocket.settimeout(60)
    return (Dsocket, Dsocket.getsockname()[1])
 
 
