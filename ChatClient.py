@@ -173,11 +173,14 @@ def AuthSequenceA(peerInfo):
    (dataRecv, addr) = dynamic_socket.recvfrom(4096)
    # Use this port info to finish authentication
 
+   if addr[0]!= peer_ip:
+      print "Peer doesn't match... maybe impersonated..."
+      return (None, None, dynamic_socket, addr)
+
    r2_d = dataRecv[0:LengthN]
    if r2_d != r2:
       print "R2 verification failed!"
-      dynamic_socket.close()
-      return None
+      return (None, None, dynamic_socket, addr)
 
    r1_e = dataRecv[LengthN:len(dataRecv)]
    r1 = RSADecrypt(r1_e, sender_private_key)
@@ -190,7 +193,7 @@ def AuthSequenceA(peerInfo):
       backend=default_backend())
    except:
       print("The provided backend does not implement RSABackend")
-      return None
+      return (None, None, dynamic_socket, addr)
 
    # Obtain the public key from the private key generated using RSA
    comm_public_key = comm_private_key.public_key()
@@ -205,12 +208,15 @@ def AuthSequenceA(peerInfo):
    )
    except:
       print("Serialization failed")
-      return None
+      return (None, None, dynamic_socket, addr)
 
    pem_cipher = encryptSendMsg(peer_authKey, sender_private_key, pem)
    msg = bytes(r1)+bytes(pem_cipher)
    dynamic_socket.sendto(msg,(peer_ip, int(Dport)))
    (peerCommKey, addr) = dynamic_socket.recvfrom(4096)
+   if addr[0]!= peer_ip:
+      print "Peer doesn't match... maybe impersonated..."
+      return (None, None, dynamic_socket, addr)
    peerCommKey = decryptSendMsg(peerCommKey, comm_private_key, peer_authKey)
    return (peerCommKey, pem_s, dynamic_socket, addr)
 
@@ -347,18 +353,18 @@ def MsgSendSequence(peername, msg):
       # Encrypt msg and send it to peer
       if (peerCommKey == None or comm_private_key == None):
          print "Sending msg failed"
-
-      peerCommKey = serialization.load_pem_public_key(
-          peerCommKey,
-          backend=default_backend()
-      )
-      comm_private_key = serialization.load_pem_private_key(
-         comm_private_key,
-         password=None,
-         backend=default_backend()
-      )
-      msg = encryptSendMsg(peerCommKey, comm_private_key, msg)
-      dynamic_socket.sendto(msg, (D_addr[0],int(D_addr[1])))
+      else:
+         peerCommKey = serialization.load_pem_public_key(
+             peerCommKey,
+             backend=default_backend()
+         )
+         comm_private_key = serialization.load_pem_private_key(
+            comm_private_key,
+            password=None,
+            backend=default_backend()
+         )
+         msg = encryptSendMsg(peerCommKey, comm_private_key, msg)
+         dynamic_socket.sendto(msg, (D_addr[0],int(D_addr[1])))
       print "Message has been sent"
    except socket.timeout:
       print "Timeout... please try to re-send the command"
