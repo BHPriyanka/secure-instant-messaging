@@ -92,9 +92,9 @@ def main(argv):
       except socket.error:
          print 'Socket error!'
          sys.exit(2)
-      except exceptions.KeyboardInterrupt:
+      except KeyboardInterrupt:
          sys.exit(2)
-      except exceptions.KeyError:
+      except KeyError:
          print 'User does not exist'
          continue
       except:
@@ -106,7 +106,7 @@ def createDynamicPort():
    Dsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
    Dsocket.bind((socket.gethostname(), 0))
    # Every dynamic port will timeout in 120 seconds
-   Dsocket.settimeout(120)
+   Dsocket.settimeout(20)
    return (Dsocket, Dsocket.getsockname()[1])
 
 # Main thread of the server
@@ -135,7 +135,8 @@ def task(dynamic_socket, addr, dataRecv):
             FetchSequence(dynamic_socket, addr, username, peername)# Invokes FetchSequence method
          elif cmd == 'logout':
             LogoutSequence(dynamic_socket, addr, username, nonce)  # Invokes LogoutSequence method
-
+   except KeyError:
+      print 'user does not exist, ignore the request...'
    except socket.timeout:
       print 'Client socket timeout, ignore the request...'
    except:
@@ -262,9 +263,8 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
 
    # Decrypt the nwciphertext using symmetric key decryption
    plaintext = AESDecrypt(new_key_sym, new_iv, nwciphertext)
-   split_data = plaintext.split(',')
-   user = str(bytes(split_data[0]))
-   enc_nwinfo = split_data[1]
+   user = plaintext.split(',')[0]
+   enc_nwinfo = plaintext[len(user)+1:len(plaintext)]
 
    # Decrypt the nwinfo using DH key
    plaintext = AESDecrypt(sym_key_shared, iv, enc_nwinfo)
@@ -290,12 +290,7 @@ def ListSequence(dynamic_socket, addr, username):
    global user_DHkey
    global user_networkinfo
    
-   dhkey = None
-   try:
-      dhkey = user_DHkey[username]                   # Fetch the DH shared key from table for the corresponding client
-   except:
-      print('Client does not exist')
-  
+   dhkey = user_DHkey[username]                   # Fetch the DH shared key from table for the corresponding client
    # Obtain the list of active users
    all_users = user_networkinfo.keys()
    list_users = []
@@ -318,17 +313,17 @@ def FetchSequence(dynamic_socket, addr, username, peername):
    peer_ip = ""
    peer_port = ""
    peer_key = ""
-   dhkey = None
-   try:
-      dhkey = user_DHkey[username]  
-      # Use this DH shared key to encrypt the peer info
-      peer_info = user_networkinfo[peername]
-      peer_ip = peer_info[0]
-      peer_port = peer_info[1]
-      peer_key = peer_info[2]
-   except:
-      print('Client does not exist')
-      return
+   dhkey = user_DHkey[username]  
+   # Use this DH shared key to encrypt the peer info
+   peer_info = user_networkinfo[peername]
+
+   if dhkey == None or peer_info == []:
+    print 'user has not logged in, ignore the request...'
+    return
+
+   peer_ip = peer_info[0]
+   peer_port = peer_info[1]
+   peer_key = peer_info[2]
   
    iv = os.urandom(LengthIV)
    enc_peer_info = AESEncrypt(peer_ip+","+peer_port+","+peer_key, dhkey, iv)

@@ -96,10 +96,9 @@ def main(argv):
       inputStr = raw_input()
       cmdComponents = re.split('\s+', inputStr)
       if cmdComponents[0] == 'list':
-	 if len(cmdComponents)>1:
-	    print 'Usage: list'
-	    continue
-         print 'list sequence'
+         if len(cmdComponents)>1:
+            print 'Usage: list'
+            continue
          ListSequence(username)
       elif cmdComponents[0] == 'send':
          if len(cmdComponents)<3:
@@ -109,9 +108,9 @@ def main(argv):
          msg = ' '.join(cmdComponents[2:len(cmdComponents)])
          MsgSendSequence(user, msg)
       elif cmdComponents[0] == 'logout':
-	 if len(cmdComponents)>1:
-	   print 'Usage: logout'
-	   continue
+         if len(cmdComponents)>1:
+            print 'Usage: logout'
+            continue
          LogoutSequence(username)
       else:
 	print('Invalid Input by the User')
@@ -121,7 +120,7 @@ def createDynamicPort():
    Dsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
    Dsocket.bind((socket.gethostname(), 0))
    # every socket will timeout in 60 seconds!
-   Dsocket.settimeout(120)
+   Dsocket.settimeout(20)
    return (Dsocket, Dsocket.getsockname()[1])
 
 
@@ -137,6 +136,8 @@ def listenTask(client_socket):
          thread.start_new_thread(MsgRecvSequence,(dynamic_socket, addr, dataRecv))
       except socket.error:
          print 'ListenTask socket error!'
+         sys.exit(2)
+      except KeyboardInterrupt:
          sys.exit(2)
       except:
          print "Unexpected error:", sys.exc_info()[0]
@@ -210,7 +211,7 @@ def AuthSequenceA(peerInfo):
    msg = bytes(r1)+bytes(pem_cipher)
    dynamic_socket.sendto(msg,(peer_ip, int(Dport)))
    (peerCommKey, addr) = dynamic_socket.recvfrom(4096)
-   peerCommKey = decryptSendMsg(peerCommKey, sender_private_key, peer_authKey)
+   peerCommKey = decryptSendMsg(peerCommKey, comm_private_key, peer_authKey)
    return (peerCommKey, pem_s, dynamic_socket, addr)
 
 # Authentication for the Client B
@@ -301,8 +302,8 @@ def AuthSequenceB(dynamic_socket, peerAdd, init_msg):
    except:
       print("Serialization failed")
       return None
-
-   pem_cipher = encryptSendMsg(peerRSAKey, sender_private_key, pem)
+   key = serialization.load_pem_public_key(peerRSACommKey, backend=default_backend())
+   pem_cipher = encryptSendMsg(key, sender_private_key, pem)
    dynamic_socket.sendto(pem_cipher, (peerAdd[0], int(peerAdd[1])))
 
    return (peername, pem_s, peerRSACommKey)
@@ -315,6 +316,7 @@ def MsgSendSequence(peername, msg):
    global serverIP
    global username
 
+   dynamic_socket = None
    try:
       # Format of send command {Alice,K{send Bob}} server-public-key
       # Encrypt the list command using the DH shared key
@@ -362,10 +364,12 @@ def MsgSendSequence(peername, msg):
       dynamic_socket.sendto(msg, (D_addr[0],int(D_addr[1])))
       print "Message has been sent"
    except socket.timeout:
-      print "Timeout error:", sys.exc_info()[0]
-      return
+      print "Timeout... please try to re-send the command"
    except:
       print "Unexpected error:", sys.exc_info()[0]
+   finally:
+      if dynamic_socket != None:
+         dynamic_socket.close()
       return
 
 # Message Receive Sequence
@@ -396,9 +400,10 @@ def MsgRecvSequence(dynamic_socket, peerAdd, dataRecv):
       print msg
    except socket.timeout:
       print "socket timeout"
-      return
    except:
       print "Unexpected error:", sys.exc_info()[0]
+   finally:
+         dynamic_socket.close()
 
 def LoginSequence(username, password):
    global server_socket
