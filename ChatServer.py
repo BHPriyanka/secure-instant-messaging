@@ -105,7 +105,7 @@ def main(argv):
 def createDynamicPort():
    Dsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
    Dsocket.bind((socket.gethostname(), 0))
-   # Every dynamic port will timeout in 120 seconds
+   # Every dynamic port will timeout in 20 seconds
    Dsocket.settimeout(20)
    return (Dsocket, Dsocket.getsockname()[1])
 
@@ -136,11 +136,11 @@ def task(dynamic_socket, addr, dataRecv):
          elif cmd == 'logout':
             LogoutSequence(dynamic_socket, addr, username, nonce)  # Invokes LogoutSequence method
    except KeyError:
-      print 'user does not exist, ignore the request...'
+      print 'User does not exist, ignore the request...'
    except socket.timeout:
       print 'Client socket timeout, ignore the request...'
    except:
-      print "task error:", sys.exc_info()[0]
+      print "Task error:", sys.exc_info()[0]
       raise
    finally:
       dynamic_socket.close()
@@ -226,7 +226,7 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    dynamic_socket.sendto(server_first_msg, (addr[0], int(addr[1])))
 
    (dataRecv, addr) = dynamic_socket.recvfrom(4096)
-   print('Verifying the hashes for ', username)
+   print 'Verifying the hashes for ', username
    _N2 = dataRecv[0:LengthN]
    if _N2!=str(N2):
     print "Nonce N2 doesn't match"
@@ -237,9 +237,9 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    if hash_recv == u.hashsecret1:
       u.genKey(client_dh_pub_key)
    else:
-      print('Hashes does not match')
+      print 'Hashes does not match'
       return
-   print('Sending ACK to ' , username)
+   print 'Sending ACK to ' , username
 
    sym_key_shared = aeskeygen(u.key)                              # Generate AES key out of DH key
    iv = os.urandom(LengthIV)
@@ -247,7 +247,7 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    msg = bytes(iv) + bytes(acknowledge)
    dynamic_socket.sendto(msg, (addr[0], int(addr[1])))            # Send the ACK to the client
 
-   print('Waiting for Network Information')
+   print 'Waiting for Network Information of ',username
    (dataRecv, addr) = dynamic_socket.recvfrom(4096)
    offset = InitOffset
    new_iv = dataRecv[offset:offset+LengthIV]
@@ -318,7 +318,7 @@ def FetchSequence(dynamic_socket, addr, username, peername):
    peer_info = user_networkinfo[peername]
 
    if dhkey == None or peer_info == []:
-    print 'user has not logged in, ignore the request...'
+    print 'User has not logged in, ignore the request...'
     return
 
    peer_ip = peer_info[0]

@@ -119,7 +119,7 @@ def main(argv):
 def createDynamicPort():
    Dsocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
    Dsocket.bind((socket.gethostname(), 0))
-   # every socket will timeout in 60 seconds!
+   # every socket will timeout in 20 seconds!
    Dsocket.settimeout(20)
    return (Dsocket, Dsocket.getsockname()[1])
 
@@ -252,8 +252,6 @@ def AuthSequenceB(dynamic_socket, peerAdd, init_msg):
 
    # Decrypt ciphernew
    peerInfo = AESDecrypt(dh_aes_key, iv1, ciphernew)
-   #print "Peer Info of:" +  peername + " = " + peerInfo
-
    peerAdd_s = peerInfo.split(',')[0]
    if peerAdd_s!=peerAdd[0]:
       print "Peer doesn't match... maybe impersonated..."
@@ -344,7 +342,6 @@ def MsgSendSequence(peername, msg):
 
       # Decrypt ciphernew
       peerInfo = AESDecrypt(dh_aes_key, iv1, ciphernew)
-      #print "PeerInfo of Client 2 : " + peerInfo
       (peerCommKey, comm_private_key, dynamic_socket, D_addr) = AuthSequenceA(peerInfo)
 
       # Encrypt msg and send it to peer

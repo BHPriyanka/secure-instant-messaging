@@ -37,10 +37,12 @@ Files Used:
 5. DHExample.py - implements the key aspects of the Diffie Hellman Key exchange. It generates secret key of DH, hash secrets used in our protocol, prime number p	
 		  of fixed group(17) , public and private key pair using the generator g and prime p
 
+
+
 --------------------------------------------------------------------------
 
 List of Usernames and passwords supported in our implementation:
-
+--------------------------------------------------------------------------
 
 USERNAME                     PASSWORD
 a                              1
