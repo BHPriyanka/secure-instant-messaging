@@ -70,11 +70,13 @@ def main(argv):
       # start login sequence
       username = raw_input("user:")
       password = raw_input("password:")
-      print username+":"+password
       LoginSequence(username, password)
 
       # passively listening on incomming conncetion from other clients.
       thread.start_new_thread(listenTask,(client_socket,))
+   except socket.timeout:
+      print 'connection timeout...'
+      sys.exit(2)
    except :
       print 'error when init socket, exit...'
       raise
@@ -222,7 +224,7 @@ def AuthSequenceB(dynamic_socket, peerAdd, init_msg):
    ciphernew = dataRecv[offset:len(dataRecv)]
    #decrypt ciphernew
    peerInfo = AESDecrypt(dh_aes_key, iv1, ciphernew)
-   print "peerInfo = "+peerInfo
+   print "peerInfoAlice = "+peerInfo
    peerAdd_s = peerInfo.split(',')[0]
    if peerAdd_s!=peerAdd[0]:
       print "peer doesn't match... maybe impersonated..."
@@ -303,7 +305,7 @@ def MsgSendSequence(peername, msg):
       ciphernew = dataRecv[offset:len(dataRecv)]
       #decrypt ciphernew
       peerInfo = AESDecrypt(dh_aes_key, iv1, ciphernew)
-      print "peerInfo = "+peerInfo
+      print "peerInfoBob = "+peerInfo
       (peerCommKey, comm_private_key, dynamic_socket, D_addr) = AuthSequenceA(peerInfo)
       # encrypt msg and send it to peer
       if (peerCommKey == None or comm_private_key == None):

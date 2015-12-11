@@ -101,7 +101,6 @@ def extractmsg(serverprivkey, dataRecv):
 def encryptSendMsg(destination_public_key, sender_private_key, input_plaintext):
    # generate a symetric key
    key_sym = keygen();
-   print 'key_sym len = ',len(key_sym)
    public_key = None
    private_key = None
 
@@ -116,16 +115,12 @@ def encryptSendMsg(destination_public_key, sender_private_key, input_plaintext):
          label=None
       )
    )
-   print 'cipher_key_sym len = ',len(bytes(cipher_key_sym))
 
    # encrypt file with key_sym
    iv = os.urandom(16)
    cipher = Cipher(algorithms.AES(key_sym), modes.OFB(iv), backend=default_backend())
    encryptor = cipher.encryptor()
-
-   print 'data len = ',len(input_plaintext)
    ciphertext = encryptor.update(input_plaintext) + encryptor.finalize()
-   print 'ciphertext len =',len(bytes(ciphertext))
 
    # sign the file with sender's private key
    private_key = sender_private_key
@@ -138,7 +133,6 @@ def encryptSendMsg(destination_public_key, sender_private_key, input_plaintext):
    )
    signer.update(bytes(ciphertext))
    signature = signer.finalize()
-   print 'signature len = ',len(bytes(signature))
 
    # compose the cipher text: iv|key_sym|signature|file
    return bytes(iv)+bytes(cipher_key_sym)+bytes(signature)+bytes(ciphertext)
