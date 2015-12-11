@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.serialization import load_pem_private_key, l
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes, hmac
-from DHExample import DiffieHellman
+from DHExample import DiffieHellman, hash32
 from general_functions import aeskeygen, keygen, RSADecrypt, RSAEncrypt, AESDecrypt, AESEncrypt
 from general_functions import encryptSendMsg, decryptSendMsg
 
@@ -29,9 +29,6 @@ sender_private_key = None
 serverIP = None
 serverPort = None
 dh_aes_key = None
-def hash32(value):
-   # use this to calculate W from password string.
-   return hash(value) & 0xffffffff
 
 def main(argv):
    global server_socket
@@ -80,6 +77,7 @@ def main(argv):
       thread.start_new_thread(listenTask,(client_socket,))
    except :
       print 'error when init socket, exit...'
+      raise
       sys.exit(2)
    while True:
       # Cmd Task:
@@ -225,6 +223,11 @@ def AuthSequenceB(dynamic_socket, peerAdd, init_msg):
    #decrypt ciphernew
    peerInfo = AESDecrypt(dh_aes_key, iv1, ciphernew)
    print "peerInfo = "+peerInfo
+   peerAdd_s = peerInfo.split(',')[0]
+   peerIp_s = peerInfo.split(',')[1]
+   if peerAdd_s!=peerAdd[0] or peerIp_s!=str(peerAdd[1]):
+      print "peer doesn't match!"
+      return
    peerRSAKey = peerInfo.split(',')[2]
    peerRSAKey =  serialization.load_pem_public_key(peerRSAKey, backend=default_backend())
 
@@ -367,9 +370,8 @@ def LoginSequence(username, password):
    global Dport
    global sender_private_key
 
-   #compute the nonce, a random no. of 32 bit, W from password 
+   #compute the nonce, a random no. of 32 bit
    nonce = os.urandom(32)
-   W = hash32(password)
    u = DiffieHellman()
    # modular prime and private key for DH exchange
    p = str(u.prime)
@@ -448,14 +450,16 @@ def LoginSequence(username, password):
    hash_secret = split_data[1]
 
    #generate hash secret
-   u.genHashSecret1(dh_key_server_public)
+
+   W = hash32(password)
+   u.genHashSecret(W, dh_key_server_public)
   
-   try:
-      if hash_secret == u.hashsecret1:
-         #generate DH shared key
-         u.genKey(dh_key_server_public)
-         server_socket.sendto(u.hashsecret1, (serverIP, int(Dport)))
-   except:
+   if hash_secret == u.hashsecret:
+      #generate DH shared key
+      u.genKey(dh_key_server_public)
+      u.genHashSecret1(W, dh_key_server_public)
+      server_socket.sendto(u.hashsecret1, (serverIP, int(Dport)))
+   else:
       print('hash does not match' )
       sys.exit(2)
 

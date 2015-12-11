@@ -16,42 +16,53 @@ from cryptography.hazmat.primitives import hashes, hmac
 from DHExample import DiffieHellman
 from general_functions import aeskeygen, keygen, RSADecrypt, RSAEncrypt, AESDecrypt, AESEncrypt, extractmsg
 
-ClientList = []
 user_networkinfo = {}
 user_DHkey = {}
-user_moduli = []
+user_moduli = {}
 
 def hash32(value):
    # use this to calculate W from password string.
    return hash(value) & 0xffffffff
 
 def main(argv):
-   global serverprivkey
-
-   commonPort = ''
-   if len(argv) != 2:
+    global serverprivkey
+    global user_moduli
+    commonPort = ''
+    if len(argv) != 2:
       print 'ChatServer.py -p <commonPort>'
       sys.exit(2)
-   try:
+    try:
       opts, args = getopt.getopt(argv,"hp:")
-   except getopt.GetoptError:
+    except getopt.GetoptError:
       print 'ChatServer.py -p <commonPort>'
       sys.exit(2)
-   for opt, arg in opts:
+    for opt, arg in opts:
       if opt == '-h':
          print 'ChatServer.py -p <commonPort>'
          sys.exit()
       elif opt =="-p":
          commonPort = arg
-   try:
-      server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
-      # server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-      server_socket.bind((socket.gethostname(), int(commonPort)))
-      print 'Server Initialized at '+server_socket.getsockname()[0]+':'+commonPort
-   except:
-      print 'error when init socket, exit...'
+    try:
+        server_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Use UDP for communication
+        # server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server_socket.bind((socket.gethostname(), int(commonPort)))
+        print 'Server Initialized at '+server_socket.getsockname()[0]+':'+commonPort
+    except:
+        print 'error when init socket, exit...'
+        sys.exit(2)
+    # Loading user table
+    try:
+      with open('username_mod.txt', 'r') as f:
+          for line in f:
+            name, mod = line.split(",")
+            user_moduli[name] = mod
+            user_DHkey[name] = None
+            user_networkinfo[name] = []
+    except:
+      print("Loading user table failed!")
       sys.exit(2)
-   while True:
+
+    while True:
       try:
          dataRecv, addr = server_socket.recvfrom(4096)
          print "received message length:", len(dataRecv)
@@ -91,10 +102,10 @@ def task(dynamic_socket, addr, dataRecv):
       if msg_type == bytes(0x00):
          LoginSequence(dynamic_socket, addr, dataRecv)
          print('LOGIN SUCCESSFUL')
-         print('List Of Services provided the Server')
-         print('1. LIST')
-         print('2.SEND')
-         print('3.LOGOUT')
+         # print('List Of Services provided the Server')
+         # print('1. LIST')
+         # print('2.SEND')
+         # print('3.LOGOUT')
       elif msg_type == bytes(0x01):
          (iv, nonce, username, cmd_cipher) = extractmsg(serverprivkey, dataRecv)
          dhkey = user_DHkey[username]
@@ -125,6 +136,7 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    cipher_key_sym = None
    ciphertext = None
    iv = None
+   moduli = None
 
    offset = 0
    msg_type = dataRecv[offset]
@@ -153,6 +165,15 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    #get data from plaintext
    split_data = plaintext.split(',')
    username = split_data[0]
+   # check if already login
+   try:
+    if user_networkinfo[username] != [] or user_DHkey[username] != None:
+      print "user has already logged in!"
+      return
+   except:
+    print "user doesn't exist!"
+    return
+
    #2^a mod p
    client_dh_pub_key = split_data[1]
    client_rsa_pub_key = split_data[2]
@@ -163,7 +184,8 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    b = str(u.privateKey)
    dh_key_server = str(u.publicKey)
    p = str(u.prime)
-   u.genHashSecret(client_dh_pub_key)
+   moduli = user_moduli[username]
+   u.genHashSecretM(moduli ,client_dh_pub_key)
    msg = nonce + dh_key_server + ',' + u.hashsecret
 
    #generate a aes key , iv and use it to encrypt the above msg
@@ -183,8 +205,9 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    (dataRecv, addr) = dynamic_socket.recvfrom(4096)
    print('Verifying the hashes computed and received')
   
+   u.genHashSecretM1(moduli ,client_dh_pub_key)
    try:
-      if dataRecv == u.hashsecret:
+      if dataRecv == u.hashsecret1:
          u.genKey(client_dh_pub_key)
       else:
          print('hashes does not match')
@@ -226,9 +249,9 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    print('Received common port and ip')
   
    #register those into eph-table
-   user_networkinfo.setdefault(username, []).append(ip_address)
-   user_networkinfo.setdefault(username, []).append(port_num)
-   user_networkinfo.setdefault(username, []).append(client_rsa_pub_key)
+   user_networkinfo[username].append(ip_address)
+   user_networkinfo[username].append(port_num)
+   user_networkinfo[username].append(client_rsa_pub_key)
    
    user_DHkey[username] = sym_key_shared
    print('Registered the client')
@@ -324,8 +347,8 @@ def LogoutSequence(dynamic_socket, addr, username, nonce):
   username = str(bytes(plaintext[32:len(bytes(plaintext))]))
   print('Deleting User',username,'from the database')
   try:
-    del user_DHkey[username]
-    del user_networkinfo[username]
+    user_DHkey[username] = None
+    user_networkinfo[username] = []
   except:
     print('User is not present in the existing database')
   #print(user_DHkey)

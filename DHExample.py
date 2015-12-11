@@ -164,14 +164,17 @@ class DiffieHellman(object):
 		s.update(bytes(_sharedSecretBytes))
 		self.key = s.digest()
 		
-	def genHashSecret(self, otherKey):
+	def genHashSecret(self, W, otherKey):
 		"""
 		Derive the shared secret, then hash it to obtain the shared key.
 		"""								
-		W	=	hash32('chuty')
+		salt = "This is for hash"
 		#print(W)
 		self.sharedSecret = self.genSecret(self.privateKey, int(otherKey))
-		self.sharedWSecret = self.genSecret(W, int(self.publicKey)) 
+		self.sharedWSecret = self.genSecret(W, int(otherKey)) 
+
+		# print "genHashSecret:"+str(self.sharedSecret)
+		# print "genHashWSecret:"+str(self.sharedWSecret)
 
 		# Convert the shared secret (int) to an array of bytes in network order
 		# Otherwise hashlib can't hash it.
@@ -180,35 +183,92 @@ class DiffieHellman(object):
 				self.sharedSecret.bit_length() // 8 + 1, byteorder="big")
 			_sharedWSecretBytes = self.sharedWSecret.to_bytes(
 				self.sharedWSecret.bit_length() // 8 + 1, byteorder="big")
+			_salt = salt.to_bytes(salt.bit_length() // 8 + 1, byteorder="big")
+			_sharedSecretBytes = _sharedSecretBytes + _sharedWSecretBytes + _salt
 		except AttributeError:
-			_sharedSecretBytes = str(self.sharedSecret) + str(self.sharedWSecret)
+			_sharedSecretBytes = str(self.sharedSecret)+str(self.sharedWSecret)+str(salt)
 
 		s = hashlib.sha256()
 		s.update(bytes(_sharedSecretBytes))
 		self.hashsecret = s.digest()
 
-        def genHashSecret1(self, otherKey):
-                """
-                Derive the shared secret, then hash it to obtain the shared key.
-                """
-                W       =       hash32('chuty')
-                #print(W)
-                self.sharedSecret = self.genSecret(self.privateKey, int(otherKey))
-                self.sharedWSecret = self.genSecret(W, int(otherKey)) #priyanka
+	def genHashSecret1(self, W, otherKey):
+		"""
+		Derive the shared secret, then hash it to obtain the shared key.
+		"""
+		salt = "This is for hash prime"
+		#print(W)
+		self.sharedSecret = self.genSecret(self.privateKey, int(otherKey))
+		self.sharedWSecret = self.genSecret(W, int(otherKey)) #priyanka
 
-                # Convert the shared secret (int) to an array of bytes in network order
-                # Otherwise hashlib can't hash it.
-                try:
-                        _sharedSecretBytes = self.sharedSecret.to_bytes(
-                                self.sharedSecret.bit_length() // 8 + 1, byteorder="big")
-                        _sharedWSecretBytes = self.sharedWSecret.to_bytes(
-                                self.sharedWSecret.bit_length() // 8 + 1, byteorder="big")
-                except AttributeError:
-                        _sharedSecretBytes = str(self.sharedSecret) + str(self.sharedWSecret)
+		# Convert the shared secret (int) to an array of bytes in network order
+		# Otherwise hashlib can't hash it.
+		try:
+		        _sharedSecretBytes = self.sharedSecret.to_bytes(
+		            self.sharedSecret.bit_length() // 8 + 1, byteorder="big")
+		        _sharedWSecretBytes = self.sharedWSecret.to_bytes(
+		            self.sharedWSecret.bit_length() // 8 + 1, byteorder="big")
+		        _salt = salt.to_bytes(salt.bit_length() // 8 + 1, byteorder="big")
+		        _sharedSecretBytes = _sharedSecretBytes + _sharedWSecretBytes + _salt
+		except AttributeError:
+		        _sharedSecretBytes = str(self.sharedSecret)+str(self.sharedWSecret)+str(salt)
 
-                s = hashlib.sha256()
-                s.update(bytes(_sharedSecretBytes))
-                self.hashsecret1 = s.digest()
+		s = hashlib.sha256()
+		s.update(bytes(_sharedSecretBytes))
+		self.hashsecret1 = s.digest()
+
+	def genHashSecretM(self, W_moduli, otherKey):
+		"""
+		Derive the shared secret, then hash it to obtain the shared key.
+		"""								
+		salt = "This is for hash"
+		#print(W)
+		self.sharedSecret = self.genSecret(self.privateKey, int(otherKey))
+		self.sharedWSecret = self.genSecret(self.privateKey, int(W_moduli))
+
+		# print "genHashSecretM:"+str(self.sharedSecret)
+		# print "genHashWSecretM:"+str(self.sharedWSecret)
+
+		# Convert the shared secret (int) to an array of bytes in network order
+		# Otherwise hashlib can't hash it.
+		try:
+			_sharedSecretBytes = self.sharedSecret.to_bytes(
+				self.sharedSecret.bit_length() // 8 + 1, byteorder="big")
+			_sharedWSecretBytes = self.sharedWSecret.to_bytes(
+				self.sharedWSecret.bit_length() // 8 + 1, byteorder="big")
+			_salt = salt.to_bytes(salt.bit_length() // 8 + 1, byteorder="big")
+			_sharedSecretBytes = _sharedSecretBytes + _sharedWSecretBytes + _salt
+		except AttributeError:
+			_sharedSecretBytes = str(self.sharedSecret)+str(self.sharedWSecret)+str(salt)
+
+		s = hashlib.sha256()
+		s.update(bytes(_sharedSecretBytes))
+		self.hashsecret = s.digest()
+
+	def genHashSecretM1(self, W_moduli, otherKey):
+		"""
+		Derive the shared secret, then hash it to obtain the shared key.
+		"""
+		salt = "This is for hash prime"
+		#print(W)
+		self.sharedSecret = self.genSecret(self.privateKey, int(otherKey))
+		self.sharedWSecret = self.genSecret(self.privateKey, int(W_moduli))
+
+		# Convert the shared secret (int) to an array of bytes in network order
+		# Otherwise hashlib can't hash it.
+		try:
+		        _sharedSecretBytes = self.sharedSecret.to_bytes(
+		            self.sharedSecret.bit_length() // 8 + 1, byteorder="big")
+		        _sharedWSecretBytes = self.sharedWSecret.to_bytes(
+		            self.sharedWSecret.bit_length() // 8 + 1, byteorder="big")
+		        _salt = salt.to_bytes(salt.bit_length() // 8 + 1, byteorder="big")
+		        _sharedSecretBytes = _sharedSecretBytes + _sharedWSecretBytes + _salt
+		except AttributeError:
+		        _sharedSecretBytes = str(self.sharedSecret)+str(self.sharedWSecret)+str(salt)
+
+		s = hashlib.sha256()
+		s.update(bytes(_sharedSecretBytes))
+		self.hashsecret1 = s.digest()
 
 	def getKey(self):
 		"""
@@ -243,7 +303,7 @@ if __name__=="__main__":
 	"""
 	Run an example Diffie-Hellman exchange
 	"""
-	passwords = {'a':'123','alice':'4lice1597','bob':'b0b$2007','boris':'boriS@123789XYZ','admin':'p4sSW0rd!!!'}
+	passwords = {'a':'1','b':'2','alice':'4lice1597','bob':'b0b$2007','boris':'boriS@123789XYZ','admin':'p4sSW0rd!!!'}
 	a = DiffieHellman()
 	for user in passwords.keys():
 		m = a.genPublicModuli(hash32(passwords[user]))
