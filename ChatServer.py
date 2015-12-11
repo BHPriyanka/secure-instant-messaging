@@ -15,13 +15,13 @@ from cryptography.hazmat.primitives import hashes, hmac
 from DHExample import DiffieHellman
 from utilities import aeskeygen, keygen, RSADecrypt, RSAEncrypt, AESDecrypt, AESEncrypt, extractmsg
 
-# dictionary to store the Username,IP address, Port number and the RSA auth key of the users
+# Dictionary to store the Username,IP address, Port number and the RSA auth key of the users
 user_networkinfo = {}
 
-# dictionary to store the Username and the Diffie Hellman Shared key of the users
+# Dictionary to store the Username and the Diffie Hellman Shared key of the users
 user_DHkey = {}
 
-# dictionary to tore the Username and then moduli 2^W mod p of the users
+# Dictionary to tore the Username and then moduli 2^W mod p of the users
 user_moduli = {}
 
 # Variables for Constants used
@@ -225,7 +225,7 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    dynamic_socket.sendto(server_first_msg, (addr[0], int(addr[1])))
 
    (dataRecv, addr) = dynamic_socket.recvfrom(4096)
-   print('Verifying the hashes')
+   print('Verifying the hashes for ', username)
    _N2 = dataRecv[0:LengthN]
    if _N2!=str(N2):
     print "Nonce N2 doesn't match"
@@ -238,7 +238,7 @@ def LoginSequence(dynamic_socket, addr, dataRecv):
    else:
       print('Hashes does not match')
       return
-   print('Sending ACK')
+   print('Sending ACK to ' , username)
 
    sym_key_shared = aeskeygen(u.key)                              # Generate AES key out of DH key
    iv = os.urandom(LengthIV)
@@ -321,16 +321,15 @@ def FetchSequence(dynamic_socket, addr, username, peername):
    dhkey = None
    try:
       dhkey = user_DHkey[username]  
+      # Use this DH shared key to encrypt the peer info
+      peer_info = user_networkinfo[peername]
+      peer_ip = peer_info[0]
+      peer_port = peer_info[1]
+      peer_key = peer_info[2]
    except:
       print('Client does not exist')
       return
   
-   # Use this DH shared key to encrypt the peer info
-   peer_info = user_networkinfo[peername]
-   peer_ip = peer_info[0]
-   peer_port = peer_info[1]
-   peer_key = peer_info[2]
-
    iv = os.urandom(LengthIV)
    enc_peer_info = AESEncrypt(peer_ip+","+peer_port+","+peer_key, dhkey, iv)
    msg = bytes(iv) + bytes(enc_peer_info)
@@ -372,7 +371,7 @@ def LogoutSequence(dynamic_socket, addr, username, N1):
   nonce = plaintext[0:32]                                            # Nonce 
   username = str(bytes(plaintext[32:len(bytes(plaintext))]))         # Username
 
-  print 'Deleting User: ',username
+  print 'Disconnecting User...... ',username
   try:
     user_DHkey[username] = None
     user_networkinfo[username] = []

@@ -20,7 +20,7 @@ LengthIV =16
 InitOffset =0
 LengthKey = 256
 
-# local parameters
+# Local parameters
 server_socket = None
 serverCommPort = None
 client_socket = None
@@ -29,7 +29,7 @@ username = None
 password = None
 sender_private_key = None
 
-# remote parameters
+# Remote parameters
 serverIP = None
 serverPort = None
 dh_aes_key = None
@@ -72,19 +72,19 @@ def main(argv):
       client_socket.settimeout(None)
       print 'Common Port at '+client_socket.getsockname()[0]+":"+str(client_socket.getsockname()[1])
 
-      # start login sequence
-      username = raw_input("user:")
-      #password = raw_input("password:")
-      password = getpass.getpass('password:')
+      # Start login sequence
+      username = raw_input("User:")
+      # password = raw_input("password:")
+      password = getpass.getpass('Password:')
       LoginSequence(username, password)
 
       # Passively listening on incomming connection from other clients.
       thread.start_new_thread(listenTask,(client_socket,))
    except socket.timeout:
-      print 'connection timeout...'
+      print 'Connection timeout...'
       sys.exit(2)
    except :
-      print 'error when init socket, exit...'
+      print 'Error when init socket, exit...'
       raise
       sys.exit(2)
 
@@ -96,17 +96,25 @@ def main(argv):
       inputStr = raw_input()
       cmdComponents = re.split('\s+', inputStr)
       if cmdComponents[0] == 'list':
+	 if len(cmdComponents)>1:
+	    print 'Usage: list'
+	    continue
          print 'list sequence'
          ListSequence(username)
       elif cmdComponents[0] == 'send':
          if len(cmdComponents)<3:
-            print 'send <user> <message>'
+            print 'Usage: send USER MESSAGE'
             continue
          user = cmdComponents[1]
          msg = ' '.join(cmdComponents[2:len(cmdComponents)])
          MsgSendSequence(user, msg)
       elif cmdComponents[0] == 'logout':
+	 if len(cmdComponents)>1:
+	   print 'Usage: logout'
+	   continue
          LogoutSequence(username)
+      else:
+	print('Invalid Input by the User')
          
 # Generation of Dynamic port
 def createDynamicPort():
@@ -247,7 +255,7 @@ def AuthSequenceB(dynamic_socket, peerAdd, init_msg):
 
    peerAdd_s = peerInfo.split(',')[0]
    if peerAdd_s!=peerAdd[0]:
-      print "peer doesn't match... maybe impersonated..."
+      print "Peer doesn't match... maybe impersonated..."
       return
 
    peerRSAKey = peerInfo.split(',')[2]
@@ -549,7 +557,7 @@ def ListSequence(clientinfo):
    listinfo = AESEncrypt('list', dh_aes_key, iv)
 
    list_msg = bytes(N1) + bytes(clientinfo + ',' + listinfo)
-   #encrypt username and list command using new aes key and then encrypt the aes key using server public key
+   # Encrypt username and list command using new aes key and then encrypt the aes key using server public key
    sym_key = keygen()
    encrypted_list = AESEncrypt(list_msg, sym_key, iv)
 
@@ -569,7 +577,7 @@ def ListSequence(clientinfo):
    # Decrypt ciphernew
    text = AESDecrypt(dh_aes_key, iv1, ciphernew)
    print('List of Users currently active:')
-   print bytes(text)
+   print str(bytes(text)).strip('')
 
 def LogoutSequence(clientInfo):
    global dh_aes_key
