@@ -96,13 +96,17 @@ def main(argv):
       # send username msg
       # list
       # block main thread until sequence finished
+
       inputStr = raw_input()
       cmdComponents = re.split('\s+', inputStr)
       if cmdComponents[0] == 'list':
          if len(cmdComponents)>1:
             print 'Usage: list'
             continue
-         ListSequence(username)
+         try:
+            ListSequence(username)
+         except:
+            print 'ListSequence exception, ignored...'
       elif cmdComponents[0] == 'send':
          if len(cmdComponents)<3:
             print 'Usage: send USER MESSAGE'
@@ -114,9 +118,15 @@ def main(argv):
          if len(cmdComponents)>1:
             print 'Usage: logout'
             continue
-         LogoutSequence(username)
+         try:
+            LogoutSequence(username)
+         except SystemExit:
+            exit(0)
+         except:
+            print 'LogoutSequence exception, exit...'
+            exit(0)
       else:
-	print('Invalid Input by the User')
+         print('Invalid Input by the User')
          
 # Generation of Dynamic port
 def createDynamicPort():
