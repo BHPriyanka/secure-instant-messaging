@@ -84,7 +84,7 @@ def main(argv):
       print 'Connection timeout...'
       sys.exit(2)
    except :
-      print 'Error when init socket, exit...'
+      print 'Error when login, exit...'
       raise
       sys.exit(2)
 
