@@ -74,6 +74,9 @@ def main(argv):
 
       # Start login sequence
       username = raw_input("User:")
+      if not username:
+	print 'Username cannot be blank'
+	sys.exit(2)
       # password = raw_input("password:")
       password = getpass.getpass('Password:')
       LoginSequence(username, password)
